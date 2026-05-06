@@ -52,7 +52,22 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
+          # nullglob: missing globs expand to nothing rather than the literal
+          # pattern (electron-builder only emits .dmg unless zip target is
+          # added, so dist/*.zip would otherwise break the upload).
+          shopt -s nullglob
+          # Filenames contain spaces ("Sweet Creative Inventory-…") so we
+          # build an array and expand quoted to keep each file as one arg.
+          files=( dist/*.dmg dist/*.zip dist/*.blockmap )
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::No release artifacts found in dist/" >&2
+            ls -la dist/ || true
+            exit 1
+          fi
+          echo "Uploading ${#files[@]} asset(s) to release ${GITHUB_REF_NAME}:"
+          printf '  %s\n' "${files[@]}"
           gh release create "${GITHUB_REF_NAME}" \
-            dist/*.dmg dist/*.zip \
+            "${files[@]}" \
             --generate-notes \
             --title "${GITHUB_REF_NAME}"
