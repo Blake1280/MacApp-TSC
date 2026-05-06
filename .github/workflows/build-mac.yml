@@ -6,6 +6,11 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+# gh release create needs write access to contents (releases live under that
+# scope). Default token permissions for new repos are read-only.
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-latest
