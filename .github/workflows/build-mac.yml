@@ -1,0 +1,53 @@
+name: Build macOS
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Rebuild native modules against Electron ABI
+        run: npx electron-builder install-app-deps
+
+      - name: Build macOS package
+        run: npm run package:mac
+        env:
+          # No Apple Developer cert configured yet, so skip auto-signing.
+          # Build still produces a working .dmg; users get a Gatekeeper
+          # warning on first launch (right-click -> Open).
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-build
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.blockmap
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Publish release on tag push
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            dist/*.dmg dist/*.zip \
+            --generate-notes \
+            --title "${GITHUB_REF_NAME}"

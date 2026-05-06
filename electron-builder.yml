@@ -1,0 +1,63 @@
+appId: au.com.thesweetcreative.inventory
+productName: Sweet Creative Inventory
+copyright: Copyright (c) 2026 The Sweet Creative
+
+directories:
+  output: dist
+  buildResources: resources
+
+files:
+  - out/**/*
+  - resources/**/*
+  - package.json
+  - "!**/{.git,.github,.vscode,.idea,coverage,test,tests,docs,*.md}"
+  - "!**/{*.ts,tsconfig*.json,vitest.config.*}"
+  - "!**/*.map"
+
+asarUnpack:
+  - node_modules/better-sqlite3/**/*
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: resources/icon.png
+  publisherName: The Sweet Creative
+  artifactName: ${productName}-${version}-Setup.${ext}
+
+nsis:
+  oneClick: false
+  # Lock the install location so every upgrade overwrites the previous version
+  # instead of letting the user pick a new folder and ending up with parallel
+  # installs. NSIS will uninstall the prior version first, then install the new
+  # one to the same per-user path each time.
+  allowToChangeInstallationDirectory: false
+  perMachine: false
+  # Preserve the SQLite database in %APPDATA%\sweet-creative-inventory on
+  # upgrade or uninstall — Jade's stock counts and orders live there.
+  deleteAppDataOnUninstall: false
+  # Smaller patch artifacts when only a few files changed between versions.
+  differentialPackage: true
+  shortcutName: Sweet Creative Inventory
+  uninstallDisplayName: Sweet Creative Inventory
+
+mac:
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+  icon: resources/icon.png
+  category: public.app-category.business
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+dmg:
+  title: ${productName}
+
+# Auto-update target. Switch from null to 'github' (or s3, etc.) once a public
+# release feed exists. While null the app simply skips update checks.
+publish: null
+# Example for GitHub Releases (uncomment + set repo when ready):
+# publish:
+#   provider: github
+#   owner: thesweetcreative
+#   repo: sweet-creative-inventory
+#   private: true

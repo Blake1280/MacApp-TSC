@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Sweet Creative favicon — minimal version, balloon mark only, no text -->
+  <defs>
+    <clipPath id="round">
+      <circle cx="100" cy="100" r="100"/>
+    </clipPath>
+  </defs>
+
+  <!-- Pink background filling a perfect circle -->
+  <g clip-path="url(#round)">
+    <rect width="200" height="200" fill="#febdc6"/>
+
+    <!--
+      Balloon mark, centred. The balloon body is an ellipse with a small
+      reflective highlight (a curved shine + dot) and a tied bow + tail at the
+      bottom. Uses the same line weight/style as the brand stamp.
+    -->
+    <g fill="none" stroke="#1a1a1a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Balloon body -->
+      <ellipse cx="100" cy="86" rx="42" ry="50"/>
+
+      <!-- Reflective shine on balloon (curve) -->
+      <path d="M 124 80 Q 128 100 118 124"/>
+
+      <!-- Reflective dot near the curve -->
+      <ellipse cx="125" cy="74" rx="3.2" ry="4.4"/>
+
+      <!-- Bow at bottom (small triangle/knot) -->
+      <path d="M 96 138 L 100 132 L 104 138 L 100 146 Z"/>
+
+      <!-- Curly tail dangling -->
+      <path d="M 100 146 Q 96 156 102 162 Q 110 168 100 178"/>
+    </g>
+  </g>
+</svg>

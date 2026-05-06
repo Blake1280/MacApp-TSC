@@ -1,0 +1,16 @@
+node_modules/
+out/
+dist/
+dist-mac/
+.vite/
+.env
+.env.local
+*.log
+.DS_Store
+.idea/
+.vscode/
+coverage/
+*.db
+*.db-shm
+*.db-wal
+*.tsbuildinfo

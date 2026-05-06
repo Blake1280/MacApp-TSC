@@ -1,0 +1,238 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   The Sweet Creative — brand tokens, mirrored from the website's
+   colors_and_type.css so the inventory app stays visually
+   consistent with the storefront.
+   ============================================================ */
+
+@layer base {
+  :root {
+    /* Brand palette as HSL for the shadcn/Tailwind variable system */
+    --background: 28 60% 96%;        /* cream     #FBF4EF */
+    --foreground: 22 14% 11%;        /* ink-900   #1F1A17 */
+    --muted: 30 47% 92%;             /* cream-2   #F4E9DF */
+    --muted-foreground: 24 12% 38%;  /* ink-500   #6B5F55 */
+    --card: 0 0% 100%;               /* paper     #FFFFFF */
+    --card-foreground: 22 14% 11%;
+    --border: 25 23% 87%;            /* warm hairline against cream */
+    --input: 25 23% 87%;
+    --ring: 348 30% 51%;             /* rose-600  #A95C6B */
+    --primary: 348 30% 51%;          /* rose-600 */
+    --primary-foreground: 28 60% 96%;
+    --secondary: 30 47% 92%;         /* cream-2 */
+    --secondary-foreground: 22 14% 11%;
+    --accent: 350 64% 85%;           /* blush-300 #F2BFC7 */
+    --accent-foreground: 22 14% 11%;
+    --destructive: 0 48% 48%;        /* error     #B5403F */
+    --destructive-foreground: 28 60% 96%;
+    --radius: 0.75rem;
+
+    /* Brand-extras used by the new utility classes below */
+    --rose-50:  348 60% 97%;          /* very pale wash for hover/tints */
+    --rose-100: 348 50% 92%;
+    --rose-200: 348 40% 85%;
+    --rose-300: 350 64% 85%;          /* blush-300 — same as accent */
+    --rose-700: 348 35% 36%;          /* deep rose for warning text */
+    --rose-900: 348 35% 22%;
+  }
+
+  html, body, #root {
+    height: 100%;
+  }
+
+  /* Subtle bump so default Tailwind text sizes (text-sm = 0.875rem etc.)
+     read more comfortably on a desktop monitor. Scales every rem-based
+     unit proportionally — pinned px values (e.g. sidebar wordmark) stay
+     untouched. */
+  html {
+    font-size: 17px;
+  }
+
+  body {
+    @apply text-foreground antialiased;
+    /* Lift the canvas off flat cream — same trick the website does. The
+       gradient sits behind the whole shell; sidebar's white card and main
+       content cards float on top so the rhythm reads automatically. */
+    background:
+      linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--muted)) 100%);
+    background-attachment: fixed;
+    font-family:
+      'Jost',
+      'Montserrat',
+      -apple-system,
+      BlinkMacSystemFont,
+      'Segoe UI',
+      sans-serif;
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2 {
+    font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  /* Tabular numerals for stock counts */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Brand-flavoured surfaces — sidebar gets a soft blush undertone like
+     the website nav, plus a tighter inset border. */
+  aside {
+    background: rgba(252, 235, 238, 0.86);
+    box-shadow: inset -1px 0 0 rgba(169, 92, 107, 0.10);
+    backdrop-filter: blur(2px);
+  }
+}
+
+@layer utilities {
+  .font-serif-brand {
+    font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+  }
+  .font-script-brand {
+    font-family: 'Dancing Script', cursive;
+  }
+}
+
+/* ============================================================
+   Brand component utilities — re-skin the generic admin shell so
+   it actually feels like The Sweet Creative without rewriting
+   every page. Use these classes in JSX instead of raw Tailwind
+   when you want the brand rhythm.
+   ============================================================ */
+@layer components {
+
+  /* --- Page header rose hairline ---
+     A 40px tapered rose-300 underline below the page H1, echoing the
+     hand-tied ribbon section flourishes on the website. Apply to the
+     wrapper around the page title (NOT the h1 itself) so the line sits
+     under the whole header block, including any subtitle. */
+  .page-h1::after {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 2px;
+    margin-top: 10px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--rose-300)) 25%,
+      hsl(var(--ring)) 60%,
+      hsl(var(--rose-300)) 100%
+    );
+    border-radius: 2px;
+  }
+
+  /* --- Brand surface (replacement for `rounded-lg border bg-card`) ---
+     Uses a 1px brand-tinted drop shadow + tiny inset highlight instead
+     of a hard hairline. Looks softer, holds up against the gradient
+     body without the boxy admin-template feel. */
+  .brand-surface {
+    background-color: hsl(var(--card));
+    border-radius: var(--radius);
+    box-shadow:
+      0 1px 2px rgba(31, 26, 23, 0.04),
+      0 0 0 1px rgba(169, 92, 107, 0.08);
+  }
+
+  /* Same surface, but 'inset' — used inside cards/dialogs where a
+     plain card on a card looks heavy. */
+  .brand-surface-inset {
+    background-color: hsl(var(--muted) / 0.4);
+    border-radius: calc(var(--radius) - 4px);
+    box-shadow: inset 0 0 0 1px rgba(169, 92, 107, 0.06);
+  }
+
+  /* --- Alert variants — re-skinned in brand colours instead of
+     Tailwind's bright orange/blue/green palettes. Three tones:
+       brand-alert-warn  → stock alerts, low-stock, projected-short
+       brand-alert-info  → "needs review", soft notes
+       brand-alert-ok    → "all good" success states (rare)
+     All sit on cream-2 base so they don't shout against the page. */
+  .brand-alert-warn {
+    background-color: hsl(var(--rose-50));
+    color: hsl(var(--rose-900));
+    box-shadow: 0 0 0 1px hsl(var(--rose-200));
+    border-radius: var(--radius);
+  }
+  .brand-alert-warn-strong {
+    color: hsl(var(--rose-700));
+  }
+  .brand-alert-info {
+    background-color: hsl(var(--muted) / 0.6);
+    color: hsl(var(--foreground));
+    box-shadow: 0 0 0 1px hsl(var(--border));
+    border-radius: var(--radius);
+  }
+  .brand-alert-ok {
+    background-color: hsl(var(--rose-50));
+    color: hsl(var(--rose-700));
+    box-shadow: 0 0 0 1px hsl(var(--rose-200));
+    border-radius: var(--radius);
+  }
+  /* Status pill variants — for Orders status badges (new / confirmed /
+     fulfilled / cancelled / refunded). Brand-toned so the table reads
+     as one composition instead of a Tailwind colour wheel. */
+  .brand-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.7rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    font-weight: 500;
+    box-shadow: inset 0 0 0 1px hsl(var(--border));
+    background-color: hsl(var(--muted));
+    color: hsl(var(--muted-foreground));
+  }
+  .brand-pill-new       { background-color: hsl(var(--rose-50));        color: hsl(var(--ring));        box-shadow: inset 0 0 0 1px hsl(var(--rose-200)); }
+  .brand-pill-confirmed { background-color: hsl(var(--rose-300) / 0.4); color: hsl(var(--rose-900));    box-shadow: inset 0 0 0 1px hsl(var(--rose-300)); }
+  .brand-pill-fulfilled { background-color: hsl(var(--muted));          color: hsl(var(--muted-foreground)); box-shadow: inset 0 0 0 1px hsl(var(--border)); }
+  .brand-pill-cancelled { background-color: hsl(var(--muted) / 0.5);    color: hsl(var(--muted-foreground)); }
+  .brand-pill-refunded  { background-color: hsl(var(--rose-50));        color: hsl(var(--rose-700));    box-shadow: inset 0 0 0 1px hsl(var(--rose-200)); }
+
+  /* --- Sticky table header ---
+     Used by Inventory + Orders + Audit. Header sits flush at top of the
+     scrolling area so big lists keep their column labels in sight. */
+  .table-sticky thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  .table-sticky thead tr {
+    background-color: hsl(var(--muted) / 0.95);
+    backdrop-filter: blur(4px);
+    box-shadow: 0 1px 0 hsl(var(--border));
+  }
+
+  /* --- Empty-state container ---
+     Replaces "No orders yet." plaintext blocks. Centres a 32px balloon
+     glyph above the message and a Dancing Script tagline below. */
+  .brand-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2.25rem 1rem;
+    color: hsl(var(--muted-foreground));
+    text-align: center;
+    gap: 0.4rem;
+  }
+  .brand-empty .glyph {
+    color: hsl(var(--rose-300));
+    margin-bottom: 0.5rem;
+    opacity: 0.85;
+  }
+  .brand-empty .tagline {
+    font-family: 'Dancing Script', cursive;
+    color: hsl(var(--ring));
+    font-size: 1.05rem;
+    margin-top: 0.1rem;
+  }
+}
