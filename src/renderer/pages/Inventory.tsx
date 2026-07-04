@@ -17,6 +17,8 @@ import {
 import { trpc } from '../trpc';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { EmptyState } from '../components/EmptyState';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import {
   Dialog,
   DialogContent,
@@ -135,17 +137,15 @@ export default function InventoryPage() {
             className="pl-9"
           />
         </div>
-        <button
+        <Button
           type="button"
+          size="sm"
+          variant={showArchived ? 'secondary' : 'outline'}
+          className={showArchived ? '' : 'text-muted-foreground'}
           onClick={() => setShowArchived((v) => !v)}
-          className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${
-            showArchived
-              ? 'border-muted-foreground/40 bg-muted text-foreground'
-              : 'border-border bg-card text-muted-foreground hover:text-foreground'
-          }`}
         >
           {showArchived ? 'Hide archived' : 'Show archived'}
-        </button>
+        </Button>
       </div>
 
       {/* Category tabs — horizontal scroll on overflow. Only one section
@@ -181,14 +181,14 @@ export default function InventoryPage() {
         </div>
       )}
 
-      {items.isLoading && (
-        <div className="brand-surface px-4 py-8 text-center text-muted-foreground">Loading…</div>
-      )}
+      {items.isLoading && <EmptyState loading surface />}
 
       {items.data && items.data.length === 0 && (
-        <div className="brand-surface px-4 py-12 text-center text-muted-foreground">
-          No inventory yet. Click <strong>New item</strong> or import the stocktake spreadsheet from the Products page to get started.
-        </div>
+        <EmptyState
+          surface
+          tagline="The shelves are all yours"
+          message="No inventory yet. Click New item or import the stocktake spreadsheet from the Products page to get started."
+        />
       )}
 
       {visibleCategories.map((category) => {
@@ -270,20 +270,15 @@ function StockRow({
     item.on_hand <= item.reorder_at &&
     item.reorder_at > 0;
 
+  // Archiving asks first (via the in-app ConfirmDialog); restoring is
+  // harmless so it applies straight away.
+  const [confirmArchive, setConfirmArchive] = useState(false);
+
   function toggleArchive() {
-    const verb = isArchived ? 'restore' : 'archive';
-    if (
-      isArchived ||
-      window.confirm(
-        `Archive "${item.name}"?\n\n` +
-          `Archived items hide from the Stock page and the next stocktake export. ` +
-          `Stock movements are preserved — you can always restore the item later.`,
-      )
-    ) {
-      update.mutate({ id: item.id, archived: isArchived ? 0 : 1 });
+    if (isArchived) {
+      update.mutate({ id: item.id, archived: 0 });
     } else {
-      // user cancelled
-      void verb;
+      setConfirmArchive(true);
     }
   }
 
@@ -315,13 +310,13 @@ function StockRow({
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-medium">{item.name}</span>
               {isArchived && (
-                <span className="inline-block px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">
+                <span className="brand-pill">
                   archived
                 </span>
               )}
               {isPerOrder && !isArchived && (
                 <span
-                  className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200"
+                  className="brand-pill brand-pill-honey"
                   title="Per-order — Jade orders this in as customers request it. Won't black out on the website at on_hand=0."
                 >
                   per-order
@@ -436,6 +431,17 @@ function StockRow({
             {isArchived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
           </Button>
         </div>
+        <ConfirmDialog
+          open={confirmArchive}
+          title={`Archive "${item.name}"?`}
+          description="Archived items hide from the Stock page and the next stocktake export. Stock movements are preserved — you can always restore the item later."
+          confirmLabel="Archive"
+          onConfirm={() => {
+            setConfirmArchive(false);
+            update.mutate({ id: item.id, archived: 1 });
+          }}
+          onCancel={() => setConfirmArchive(false)}
+        />
       </td>
     </tr>
   );
@@ -570,16 +576,18 @@ function ReorderCell({
         <span className="text-muted-foreground italic truncate">
           {cheapest.supplier_name} — not linked
         </span>
-        <button
+        <Button
           type="button"
+          size="sm"
+          variant="ghost"
+          className="h-6 px-1.5 text-rose-700 whitespace-nowrap"
           onClick={() => {
             setLinkingSourceId(cheapest.id);
             setLinkDraft('');
           }}
-          className="text-rose-700 hover:underline whitespace-nowrap"
         >
           + Add link
-        </button>
+        </Button>
       </div>
     );
   }
@@ -744,7 +752,7 @@ function Popover({
       />
       <div
         ref={popoverRef}
-        className="fixed z-[101] rounded-lg border bg-card shadow-2xl overflow-y-auto"
+        className="fixed z-[101] brand-surface shadow-2xl overflow-y-auto"
         style={{
           top: pos?.top ?? -9999,
           left: pos?.left ?? -9999,
@@ -908,23 +916,27 @@ function UnlinkedSupplierRow({
             }}
             className="h-7 text-xs w-44"
           />
-          <button
+          <Button
             type="button"
+            size="sm"
+            variant="ghost"
+            className="h-6 px-1.5 text-rose-700 whitespace-nowrap"
             onClick={onSave}
             disabled={saving}
-            className="text-xs text-rose-700 hover:underline whitespace-nowrap"
           >
             Save
-          </button>
+          </Button>
         </div>
       ) : (
-        <button
+        <Button
           type="button"
+          size="sm"
+          variant="ghost"
+          className="h-6 px-1.5 text-rose-700 whitespace-nowrap flex-shrink-0"
           onClick={onStartEdit}
-          className="text-xs text-rose-700 hover:underline whitespace-nowrap flex-shrink-0"
         >
           + Add link
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -958,8 +970,8 @@ function CategoryTab({
   const baseColor =
     tone === 'warn'
       ? active
-        ? 'text-orange-700 border-orange-500'
-        : 'text-orange-700/70 hover:text-orange-700'
+        ? 'text-warning-deep border-warning'
+        : 'text-warning-deep/70 hover:text-warning-deep'
       : active
         ? 'text-foreground border-primary'
         : 'text-muted-foreground hover:text-foreground border-transparent';
@@ -1199,8 +1211,8 @@ function AdjustDialog({ mode, onClose }: { mode: AdjustMode; onClose: () => void
             />
           </Field>
           {needsConfirm && (
-            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 space-y-2 text-sm">
-              <div className="font-medium text-amber-900">
+            <div className="brand-alert-honey p-3 space-y-2 text-sm">
+              <div className="font-medium">
                 That's a big change ({qty} {mode.item.unit}).
               </div>
               <div className="text-foreground">
@@ -1214,7 +1226,7 @@ function AdjustDialog({ mode, onClose }: { mode: AdjustMode; onClose: () => void
                   checked={confirmed}
                   onChange={(e) => setConfirmed(e.target.checked)}
                 />
-                <span className="font-medium text-amber-900">Yes, that's right</span>
+                <span className="font-medium">Yes, that's right</span>
               </label>
             </div>
           )}
@@ -1364,16 +1376,16 @@ function EditDialog({ item, onClose }: { item: InventoryItem; onClose: () => voi
 
         <section className="mt-2">
           <h3 className="text-sm font-medium mb-2">Recent movements</h3>
-          <div className="rounded-md border max-h-56 overflow-auto">
+          <div className="brand-surface-inset max-h-56 overflow-auto">
             {movements.data && movements.data.length === 0 && (
-              <p className="px-3 py-4 text-sm text-muted-foreground">No movements yet.</p>
+              <EmptyState message="No movements yet." />
             )}
             <ul className="divide-y text-xs">
               {movements.data?.map((m: StockMovement) => (
                 <li key={m.id} className="px-3 py-2 flex justify-between gap-3">
                   <span className="text-muted-foreground">{formatDate(m.created_at)}</span>
                   <span className="capitalize">{m.reason.replace(/_/g, ' ')}</span>
-                  <span className={`tabular-nums ${m.delta < 0 ? 'text-destructive' : 'text-green-700'}`}>
+                  <span className={`tabular-nums ${m.delta < 0 ? 'text-destructive' : 'text-success-deep'}`}>
                     {m.delta > 0 ? `+${m.delta}` : m.delta}
                   </span>
                   <span className="text-muted-foreground truncate max-w-[40%]">{m.note ?? ''}</span>
@@ -1408,6 +1420,9 @@ function SupplierSourcesSection({ itemId }: { itemId: number }) {
 
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState({ supplier_name: '', url: '', price: '', notes: '', preferred: false });
+  // Supplier queued for deletion — set by the row's × button, confirmed via
+  // the in-app ConfirmDialog below (replaces window.confirm).
+  const [pendingDelete, setPendingDelete] = useState<SupplierSource | null>(null);
 
   function submitNew(e: React.FormEvent) {
     e.preventDefault();
@@ -1434,21 +1449,15 @@ function SupplierSourcesSection({ itemId }: { itemId: number }) {
         )}
       </div>
 
-      <div className="rounded-md border bg-card overflow-hidden">
+      <div className="brand-surface overflow-hidden">
         {sources.data && sources.data.length === 0 && !adding && (
-          <p className="px-3 py-4 text-sm text-muted-foreground text-center">
-            No suppliers yet. Add one and the Reorder button will appear on the Stock page.
-          </p>
+          <EmptyState message="No suppliers yet. Add one and the Reorder button will appear on the Stock page." />
         )}
         {sources.data && sources.data.length > 0 && (
           <SupplierGroupedList
             sources={sources.data}
             onUpdate={(id, patch) => updateMut.mutate({ id, ...patch })}
-            onDelete={(s) => {
-              if (window.confirm(`Remove supplier "${s.supplier_name}"?`)) {
-                del.mutate({ id: s.id });
-              }
-            }}
+            onDelete={(s) => setPendingDelete(s)}
             busy={updateMut.isLoading || del.isLoading}
           />
         )}
@@ -1504,6 +1513,18 @@ function SupplierSourcesSection({ itemId }: { itemId: number }) {
           </form>
         )}
       </div>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title={pendingDelete ? `Remove supplier "${pendingDelete.supplier_name}"?` : 'Remove supplier?'}
+        confirmLabel="Remove"
+        destructive
+        onConfirm={() => {
+          if (pendingDelete) del.mutate({ id: pendingDelete.id });
+          setPendingDelete(null);
+        }}
+        onCancel={() => setPendingDelete(null)}
+      />
     </section>
   );
 }

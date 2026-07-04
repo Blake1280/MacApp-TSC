@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { trpc } from '../trpc';
 import { Input } from '../components/ui/input';
+import { EmptyState } from '../components/EmptyState';
+import { FilterTabs } from '../components/FilterTabs';
 import { formatDate } from '../lib/format';
 import type { AuditLogRow, StockMovementReason } from '@shared/types';
 
@@ -46,26 +48,12 @@ export default function AuditLogPage() {
             className="pl-9"
           />
         </div>
-        <div className="flex items-center gap-1 rounded-md border bg-card p-0.5 flex-wrap">
-          {REASONS.map((r) => (
-            <button
-              key={r.value}
-              onClick={() => setReason(r.value)}
-              className={`px-3 py-1 text-xs rounded ${
-                reason === r.value
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {r.label}
-            </button>
-          ))}
-        </div>
+        <FilterTabs options={REASONS} value={reason} onChange={setReason} />
       </div>
 
-      <div className="rounded-lg border bg-card overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-muted-foreground">
+      <div className="brand-surface overflow-hidden">
+        <table className="w-full text-sm table-sticky">
+          <thead className="text-muted-foreground">
             <tr>
               <th className="text-left font-medium px-4 py-2.5">When</th>
               <th className="text-left font-medium px-4 py-2.5">Item</th>
@@ -78,15 +66,18 @@ export default function AuditLogPage() {
           <tbody>
             {rows.isLoading && (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
-                  Loading…
+                <td colSpan={6}>
+                  <EmptyState loading />
                 </td>
               </tr>
             )}
             {rows.data && rows.data.length === 0 && !rows.isLoading && (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
-                  No movements yet.
+                <td colSpan={6}>
+                  <EmptyState
+                    tagline="Nothing to trace yet."
+                    message="Every stock movement will be listed here as it happens."
+                  />
                 </td>
               </tr>
             )}
@@ -101,7 +92,7 @@ export default function AuditLogPage() {
                 </td>
                 <td
                   className={`px-4 py-2 text-right tabular-nums font-medium ${
-                    r.delta < 0 ? 'text-destructive' : 'text-green-700'
+                    r.delta < 0 ? 'text-destructive' : 'text-success-deep'
                   }`}
                 >
                   {r.delta > 0 ? `+${r.delta}` : r.delta}

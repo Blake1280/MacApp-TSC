@@ -154,8 +154,8 @@ export default function OrderDetailPage() {
           </div>
 
           {order.data.notes && (
-            <section className="rounded-lg border bg-card p-4 text-sm">
-              <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-1">
+            <section className="brand-surface p-4 text-sm">
+              <h3 className="brand-label mb-1">
                 Customer notes
               </h3>
               <p className="whitespace-pre-wrap">{order.data.notes}</p>
@@ -253,7 +253,7 @@ function ConfirmStockDeductionDialog({
           )}
 
           <div className="brand-surface-inset overflow-hidden">
-            <div className="px-3 py-2 text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
+            <div className="px-3 py-2 brand-label border-b border-border">
               About to deduct ({lines.length} item{lines.length === 1 ? '' : 's'})
             </div>
             {lines.length === 0 ? (
@@ -324,16 +324,16 @@ function SourceBanner({ order }: { order: Order }) {
 
   return (
     <section
-      className={`rounded-lg border p-3 text-sm ${
+      className={`p-3 text-sm ${
         refundNeedsReversal
-          ? 'bg-red-50 border-red-300 text-red-900'
+          ? 'brand-alert-danger'
           : isRefunded
-            ? 'bg-orange-50 border-orange-300 text-orange-900'
+            ? 'brand-alert-honey'
             : isFailsafe
-              ? 'bg-orange-50 border-orange-300 text-orange-900'
+              ? 'brand-alert-honey'
               : isManual
-                ? 'bg-amber-50 border-amber-300 text-amber-900'
-                : 'bg-muted/30'
+                ? 'brand-alert-info'
+                : 'brand-alert-info'
       }`}
     >
       {refundNeedsReversal ? (
@@ -376,6 +376,16 @@ function SourceBanner({ order }: { order: Order }) {
   );
 }
 
+// Brand-toned status pill mapping — mirrors Orders.tsx so the header
+// capsule here matches the pill on the orders list.
+const appPill: Record<Order['app_status'], string> = {
+  new: 'brand-pill-new',
+  confirmed: 'brand-pill-confirmed',
+  fulfilled: 'brand-pill-fulfilled',
+  cancelled: 'brand-pill-cancelled',
+  refunded: 'brand-pill-refunded',
+};
+
 function OrderHeader({
   order,
   onConfirm,
@@ -412,7 +422,7 @@ function OrderHeader({
           <div className="text-xs text-muted-foreground tabular-nums">
             {paid ? `Paid ${formatDate(order.paid_at)}` : 'Not yet paid'}
             {order.manually_marked_paid === 1 && (
-              <span className="ml-2 text-yellow-700">
+              <span className="ml-2 text-warning-deep">
                 · manually marked paid {formatDate(order.manual_paid_at)}
               </span>
             )}
@@ -426,19 +436,19 @@ function OrderHeader({
           </div>
         </div>
         <div className="flex flex-col gap-2 items-end">
-          <span className="capitalize text-xs px-2 py-0.5 rounded-full border bg-card">
+          <span className={`brand-pill capitalize ${appPill[order.app_status]}`}>
             {order.app_status}
           </span>
           {order.rush_order === 'yes' && (
             <span
-              className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300 inline-flex items-center gap-1 font-medium"
+              className="brand-pill brand-pill-honey"
               title="Rush order — 24–48 hr turnaround"
             >
               <Zap className="h-3 w-3" /> Rush +${order.rush_fee ?? '25.00'}
             </span>
           )}
           {order.stock_applied === 1 && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200 inline-flex items-center gap-1">
+            <span className="brand-pill brand-pill-confirmed">
               <CheckCircle2 className="h-3 w-3" /> Stock applied
             </span>
           )}
@@ -536,7 +546,7 @@ function CustomerCard({ order }: { order: Order }) {
 
   return (
     <section className="brand-surface p-4 space-y-2 text-sm">
-      <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+      <h3 className="brand-label">
         Customer
       </h3>
       <Row label="Name" value={order.customer_name} />
@@ -620,8 +630,8 @@ function CustomisationCard({
   }, [order.addon_ids_json]);
 
   return (
-    <section className="rounded-lg border bg-card p-4 space-y-3 text-sm">
-      <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+    <section className="brand-surface p-4 space-y-3 text-sm">
+      <h3 className="brand-label">
         Customisation
         {saving && <span className="ml-2 text-muted-foreground">saving…</span>}
       </h3>
@@ -646,7 +656,7 @@ function CustomisationCard({
       />
       {order.palette_id === 'custom' && order.custom_palette && (
         <div className="rounded-md border border-dashed bg-muted/30 px-3 py-2 text-sm">
-          <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-1">
+          <div className="brand-label mb-1">
             Custom palette description
           </div>
           <p className="text-foreground italic">&ldquo;{order.custom_palette}&rdquo;</p>
@@ -702,7 +712,7 @@ function RecipePreview({
   if (!preview) return null;
 
   return (
-    <section className="rounded-lg border bg-card overflow-hidden">
+    <section className="brand-surface overflow-hidden">
       <header className="px-4 py-3 border-b">
         <h3 className="text-sm font-medium">
           {stockApplied ? 'Applied stock movements' : 'Stock that will be deducted on confirm'}
@@ -714,8 +724,7 @@ function RecipePreview({
       </header>
 
       {preview.unresolvedRecipes.length > 0 && (
-        <div className="px-4 py-3 brand-alert-warn space-y-1 text-sm rounded-none"
-          style={{ borderRadius: 0 }}>
+        <div className="px-4 py-3 brand-alert-warn space-y-1 text-sm rounded-none">
           <div className="flex items-center gap-1.5 font-medium brand-alert-warn-strong">
             <AlertTriangle className="h-4 w-4" /> Some recipes can't be resolved
           </div>
@@ -726,7 +735,7 @@ function RecipePreview({
               </li>
             ))}
           </ul>
-          <p className="text-xs text-orange-900/80">
+          <p className="text-xs text-warning-deep opacity-80">
             Fix this in the Products page (or change the customisation above) before confirming.
           </p>
         </div>

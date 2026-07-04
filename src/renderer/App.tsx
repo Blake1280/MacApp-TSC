@@ -6,7 +6,10 @@ import {
   CloudDownload,
 } from 'lucide-react';
 import { cn } from './lib/utils';
-import logoOriginal from './assets/logo-original.png';
+// The polished brand mark (pink circle + line balloon) — same identity the
+// website uses for its favicon/app icon. The old B&W stamp logo lives on in
+// logo-original.png if ever needed.
+import logoMark from './assets/favicon.svg';
 import { trpc } from './trpc';
 import DashboardPage from './pages/Dashboard';
 import InventoryPage from './pages/Inventory';
@@ -62,6 +65,14 @@ function MainShell() {
   const wizardComplete = trpc.settings.get.useQuery({ key: 'wizard_complete' });
   const catalogue = trpc.catalogue.list.useQuery({});
 
+  // Native app-menu navigation (macOS "Settings… Cmd+," etc.). The preload
+  // bridge returns an unsubscribe function, which doubles as the cleanup.
+  useEffect(() => {
+    const api = (window as { app?: { onMenuNavigate?: (cb: (route: string) => void) => () => void } }).app;
+    if (!api?.onMenuNavigate) return;
+    return api.onMenuNavigate((route) => navigate(route));
+  }, [navigate]);
+
   // First-run gate: only redirect to /welcome if the wizard hasn't been
   // completed AND the DB is genuinely empty (no catalogue yet). This way
   // existing installs don't get pushed back through the wizard after we
@@ -93,9 +104,9 @@ function MainShell() {
       <aside className="w-60 shrink-0 flex flex-col">
         <div className="px-5 py-7 flex items-center gap-3">
           <img
-            src={logoOriginal}
+            src={logoMark}
             alt="The Sweet Creative"
-            className="h-12 w-12 object-contain"
+            className="h-12 w-12 object-contain drop-shadow-sm"
           />
           <div>
             <div className="font-serif-brand text-[19px] leading-none tracking-tight text-ink-900">
@@ -204,8 +215,11 @@ function StocktakePill() {
       )}
       title="Click to open Stock"
     >
-      <span className="inline-block h-1.5 w-1.5 rounded-full mr-1.5 align-middle"
-        style={{ backgroundColor: stale ? 'hsl(var(--ring))' : 'hsl(var(--rose-300))' }}
+      <span
+        className={cn(
+          'inline-block h-1.5 w-1.5 rounded-full mr-1.5 align-middle',
+          stale ? 'bg-rose-600' : 'bg-success/70',
+        )}
       />
       {label}
     </button>

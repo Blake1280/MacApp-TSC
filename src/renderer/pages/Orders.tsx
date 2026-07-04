@@ -4,6 +4,9 @@ import { Search, RefreshCw, ArrowRight, AlertTriangle, Plus, Package, Truck } fr
 import { trpc } from '../trpc';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { EmptyState } from '../components/EmptyState';
+import { FilterTabs } from '../components/FilterTabs';
+import { SyncFailureBanner } from '../components/SyncFailureBanner';
 import { formatCents, formatDate } from '../lib/format';
 import type {
   CatalogueEntryWithCounts,
@@ -88,7 +91,7 @@ export default function OrdersPage() {
       </header>
 
       {!stripeStatus.data?.connected && !netlifyStatus.data?.connected && (
-        <div className="rounded-lg border border-dashed bg-card p-6 text-center text-sm space-y-2">
+        <div className="rounded-lg border border-dashed border-rose-200 bg-card/60 p-6 text-center text-sm space-y-2">
           <p className="font-medium">No order sources connected yet.</p>
           <p className="text-muted-foreground">
             Go to <strong>Settings</strong> and connect Stripe and/or Netlify. You can also create
@@ -98,8 +101,14 @@ export default function OrdersPage() {
       )}
 
       <SyncFailureBanner
-        stripeError={stripeStatus.data?.connected ? stripeStatus.data?.last_error ?? null : null}
-        netlifyError={netlifyStatus.data?.connected ? netlifyStatus.data?.last_error ?? null : null}
+        failures={[
+          ...(stripeStatus.data?.connected && stripeStatus.data?.last_error
+            ? [{ source: 'Stripe', error: stripeStatus.data.last_error }]
+            : []),
+          ...(netlifyStatus.data?.connected && netlifyStatus.data?.last_error
+            ? [{ source: 'Netlify', error: netlifyStatus.data.last_error }]
+            : []),
+        ]}
         onRetry={() => runAll.mutate()}
         retrying={runAll.isLoading}
       />
@@ -114,21 +123,7 @@ export default function OrdersPage() {
             className="pl-9"
           />
         </div>
-        <div className="flex items-center gap-1 rounded-md border bg-card p-0.5">
-          {STATUS_FILTERS.map((f) => (
-            <button
-              key={f.value}
-              onClick={() => setFilter(f.value)}
-              className={`px-3 py-1 text-xs rounded ${
-                filter === f.value
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
+        <FilterTabs options={STATUS_FILTERS} value={filter} onChange={setFilter} />
       </div>
 
       <div className="brand-surface overflow-hidden">
@@ -148,24 +143,18 @@ export default function OrdersPage() {
           <tbody>
             {orders.isLoading && (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
-                  Loading…
+                <td colSpan={8}>
+                  <EmptyState loading />
                 </td>
               </tr>
             )}
             {orders.data && orders.data.length === 0 && !orders.isLoading && (
               <tr>
-                <td colSpan={8} className="px-0 py-0">
-                  <div className="brand-empty">
-                    <svg className="glyph" width="34" height="34" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <ellipse cx="12" cy="9.5" rx="5.5" ry="6.5" fill="currentColor" fillOpacity="0.18" />
-                      <path d="M11 16l1 1 1-1" />
-                      <path d="M12 17c-0.6 1.6 0.6 3.4 0 5" />
-                    </svg>
-                    <div className="tagline">Quiet day in Bathurst.</div>
-                    <div className="text-xs">No orders yet — they'll show up here as they come in.</div>
-                  </div>
+                <td colSpan={8}>
+                  <EmptyState
+                    tagline="Quiet day in Bathurst."
+                    message="No orders yet — they'll show up here as they come in."
+                  />
                 </td>
               </tr>
             )}
@@ -259,7 +248,7 @@ function NeededCell({
           overdue
             ? 'text-destructive font-medium'
             : urgent
-              ? 'text-orange-700 font-medium'
+              ? 'text-warning-deep font-medium'
               : 'text-foreground'
         }`}
       >
@@ -383,40 +372,3 @@ function StatusBadges({
   );
 }
 
-function SyncFailureBanner({
-  stripeError,
-  netlifyError,
-  onRetry,
-  retrying,
-}: {
-  stripeError: string | null;
-  netlifyError: string | null;
-  onRetry: () => void;
-  retrying: boolean;
-}) {
-  const failures: Array<{ source: string; error: string }> = [];
-  if (stripeError) failures.push({ source: 'Stripe', error: stripeError });
-  if (netlifyError) failures.push({ source: 'Netlify', error: netlifyError });
-  if (failures.length === 0) return null;
-  return (
-    <section className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
-      <div className="flex items-start gap-3">
-        <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
-        <div className="flex-1">
-          <div className="text-sm font-medium text-destructive">Sync failure</div>
-          <ul className="text-xs text-destructive/90 mt-1 space-y-0.5">
-            {failures.map((f) => (
-              <li key={f.source}>
-                <span className="font-medium">{f.source}:</span> {f.error}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <Button variant="outline" size="sm" onClick={onRetry} disabled={retrying}>
-          <RefreshCw className={`h-3.5 w-3.5 ${retrying ? 'animate-spin' : ''}`} />
-          Retry
-        </Button>
-      </div>
-    </section>
-  );
-}

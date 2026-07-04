@@ -45,6 +45,11 @@ mac:
   target:
     - target: dmg
       arch: [arm64, x64]
+    # zip is what electron-updater consumes on macOS — emitting it now means
+    # flipping `publish` to github later enables auto-update without a
+    # packaging change. The GHA workflow already uploads dist/*.zip.
+    - target: zip
+      arch: [arm64, x64]
   icon: resources/icon.png
   category: public.app-category.business
   artifactName: ${productName}-${version}-${arch}.${ext}

@@ -4,7 +4,7 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Jost', 'Montserrat', '-apple-system', 'sans-serif'],
+        sans: ['Jost', '-apple-system', 'sans-serif'],
         serif: ['"Cormorant Garamond"', '"Playfair Display"', 'Georgia', 'serif'],
         script: ['"Dancing Script"', 'cursive'],
         mono: ['"JetBrains Mono"', '"SF Mono"', 'Menlo', 'monospace'],
@@ -45,6 +45,13 @@ module.exports = {
           600: '#A95C6B',
           500: '#BF7382',
           400: '#D08F9C',
+          // Pale washes — hex mirrors of the --rose-50/100/200/300 HSL vars
+          // in styles.css, so pages can use bg-rose-50 / border-rose-200
+          // instead of inline style={{ … 'hsl(var(--rose-200))' }} hacks.
+          300: '#F2BFC7',
+          200: '#E8CAD0',
+          100: '#F5E0E4',
+          50: '#FCF5F7',
         },
         blush: {
           500: '#E08A95',
@@ -72,8 +79,14 @@ module.exports = {
           500: '#6B5F55',
           300: '#A89A8E',
         },
-        success: '#6E8E5E',
-        warning: '#D4923B',
+        success: {
+          DEFAULT: '#6E8E5E',
+          deep: '#44603C',
+        },
+        warning: {
+          DEFAULT: '#D4923B',
+          deep: '#7E5525',
+        },
         error: '#B5403F',
       },
       borderRadius: {

@@ -18,6 +18,7 @@ import {
 import { trpc } from '../trpc';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { EmptyState } from '../components/EmptyState';
 import {
   Dialog,
   DialogContent,
@@ -181,14 +182,14 @@ export default function ProductsPage() {
         </label>
       </div>
 
+      {all.isLoading && <EmptyState loading surface />}
+
       {isEmpty && !all.isLoading && (
-        <div className="rounded-lg border border-dashed bg-card p-10 text-center space-y-3">
-          <h2 className="text-lg font-medium">Catalogue's empty</h2>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            Click <strong>Sync from website</strong> to pull everything across in one go, or{' '}
-            <strong>Add by hand</strong> for one-offs.
-          </p>
-        </div>
+        <EmptyState
+          surface
+          tagline="Catalogue's empty"
+          message="Click Sync from website to pull everything across in one go, or Add by hand for one-offs."
+        />
       )}
 
       {/* ---- Bundles — grouped by website category ---- */}
@@ -351,7 +352,7 @@ function CategorisedSection({
             <details
               key={cat}
               open={index === 0}
-              className="group rounded-lg border bg-card overflow-hidden"
+              className="group brand-surface overflow-hidden"
             >
               <summary className="flex items-center justify-between gap-3 px-4 py-2.5 cursor-pointer select-none hover:bg-accent/30 list-none">
                 <div className="flex items-center gap-2 text-sm">
@@ -389,7 +390,7 @@ function ProductTable({
   dense?: boolean;
 }) {
   return (
-    <div className={`${dense ? '' : 'rounded-lg border'} bg-card overflow-x-auto`}>
+    <div className={`${dense ? 'bg-card' : 'brand-surface'} overflow-x-auto`}>
       <table className="w-full text-sm min-w-[640px]">
         <thead className="bg-muted/50 text-muted-foreground">
           <tr>
@@ -879,7 +880,7 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
 
 function PreviewSummary({ preview }: { preview: ImportPreview }) {
   return (
-    <div className="rounded-md border bg-muted/30 p-3 text-sm space-y-1">
+    <div className="brand-surface-inset p-3 text-sm space-y-1">
       <div className="text-xs text-muted-foreground">Found at: {preview.source_path}</div>
       <div className="grid grid-cols-5 gap-3 pt-2">
         <Stat label="Designs" value={preview.designs.length} />
@@ -894,7 +895,7 @@ function PreviewSummary({ preview }: { preview: ImportPreview }) {
 
 function ApplySummary({ result }: { result: import('@shared/types').ImportResult }) {
   return (
-    <div className="rounded-md brand-alert-ok p-3 text-sm space-y-1">
+    <div className="brand-alert-ok p-3 text-sm space-y-1">
       <div className="font-medium">Imported successfully.</div>
       <ul className="text-xs opacity-80 space-y-0.5">
         <li>
@@ -1178,7 +1179,7 @@ function FreshnessBanner({
   if (freshness.status === 'fresh') {
     if (!freshness.lastMovementAt) return null;
     return (
-      <div className="rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-900">
+      <div className="brand-alert-success px-3 py-2 text-sm">
         ✓ Workbook is up-to-date (exported{' '}
         {new Date(freshness.generatedAt).toLocaleString()}).
       </div>
@@ -1188,7 +1189,7 @@ function FreshnessBanner({
     const exported = new Date(freshness.generatedAt).toLocaleString();
     const lastMove = new Date(freshness.lastMovementAt).toLocaleString();
     return (
-      <div className="rounded-md border-2 border-destructive bg-red-50 px-3 py-3 text-sm space-y-2">
+      <div className="brand-alert-danger px-3 py-3 text-sm space-y-2">
         <div className="font-medium text-destructive">⚠ Stale stocktake</div>
         <div className="text-foreground">
           This file was exported on <strong>{exported}</strong>.{' '}
@@ -1217,8 +1218,8 @@ function FreshnessBanner({
   }
   // unknown
   return (
-    <div className="rounded-md border-2 border-amber-400 bg-amber-50 px-3 py-3 text-sm space-y-2">
-      <div className="font-medium text-amber-900">⚠ Can't verify when this file was made</div>
+    <div className="brand-alert-honey px-3 py-3 text-sm space-y-2">
+      <div className="font-medium text-warning-deep">⚠ Can't verify when this file was made</div>
       <div className="text-foreground">{freshness.reason}</div>
       <label className="flex items-start gap-2 text-sm pt-1">
         <input
@@ -1227,7 +1228,7 @@ function FreshnessBanner({
           checked={acknowledged}
           onChange={(e) => onAcknowledge(e.target.checked)}
         />
-        <span className="font-medium text-amber-900">
+        <span className="font-medium text-warning-deep">
           I trust this file — apply anyway
         </span>
       </label>
@@ -1252,7 +1253,7 @@ function StocktakePreviewSummary({ preview }: { preview: StocktakePreview }) {
   ];
 
   return (
-    <div className="rounded-md border bg-muted/30 p-3 text-sm space-y-3">
+    <div className="brand-surface-inset p-3 text-sm space-y-3">
       <div className="text-xs text-muted-foreground">Source: {preview.source_path}</div>
       <div className="grid grid-cols-3 gap-3">
         <PreviewBlock label="Inventory items" tally={inv} />
@@ -1260,12 +1261,12 @@ function StocktakePreviewSummary({ preview }: { preview: StocktakePreview }) {
         <PreviewBlock label="Recipes" tally={rec} />
       </div>
       {preview.warnings.length > 0 && (
-        <div className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1.5">
+        <div className="text-xs brand-alert-honey px-2 py-1.5">
           {preview.warnings.map((w, i) => <div key={i}>⚠ {w}</div>)}
         </div>
       )}
       {errorRows.length > 0 && (
-        <div className="text-xs text-destructive bg-red-50 rounded px-2 py-1.5 space-y-0.5">
+        <div className="text-xs brand-alert-danger px-2 py-1.5 space-y-0.5">
           <div className="font-medium">Rows with errors (first few):</div>
           {errorRows.map((r, i) => <div key={i}>• {r.reason}</div>)}
         </div>
@@ -1296,7 +1297,7 @@ function PreviewBlock({
 
 function StocktakeApplySummary({ result }: { result: StocktakeApplyResult }) {
   return (
-    <div className="rounded-md border border-green-300 bg-green-50 p-3 text-sm space-y-1">
+    <div className="brand-alert-success p-3 text-sm space-y-1">
       <div className="font-medium">Stocktake imported successfully.</div>
       <ul className="text-xs text-muted-foreground space-y-0.5">
         <li>
@@ -1314,7 +1315,7 @@ function StocktakeApplySummary({ result }: { result: StocktakeApplyResult }) {
         </li>
       </ul>
       {result.warnings.length > 0 && (
-        <div className="text-xs text-amber-700 mt-2 space-y-0.5">
+        <div className="text-xs text-warning-deep mt-2 space-y-0.5">
           {result.warnings.slice(0, 5).map((w, i) => <div key={i}>⚠ {w}</div>)}
           {result.warnings.length > 5 && <div>…and {result.warnings.length - 5} more</div>}
         </div>

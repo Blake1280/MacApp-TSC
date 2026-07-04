@@ -123,6 +123,51 @@ export class OrdersRepo {
     return row ?? null;
   }
 
+  /**
+   * Find the unlinked "twin" of an incoming order from the other source.
+   *
+   * The website submits the order form to Netlify and then redirects to
+   * Stripe Checkout. When the form payload carries the stripe_session_id the
+   * two pulls merge into one order — but when it doesn't (session created
+   * after submit, older form version, metadata dropped), each source used to
+   * insert its own row and Jade saw the order twice.
+   *
+   * Twin heuristic: same customer email (case-insensitive), same total (or
+   * the form total is 0 / unknown), created within `windowDays` of now, and
+   * still missing the incoming source's id. Deliberately strict about
+   * ambiguity: if MORE than one candidate matches (e.g. the customer really
+   * did place two identical orders), we return null and let both rows stand
+   * rather than guess — needs_review will surface them.
+   */
+  findUnlinkedTwin(input: {
+    incoming: 'stripe' | 'netlify';
+    customer_email: string | null;
+    total_cents: number;
+    windowDays?: number;
+  }): Order | null {
+    if (!input.customer_email || !input.customer_email.trim()) return null;
+    const twinSource = input.incoming === 'stripe' ? 'netlify' : 'stripe';
+    const missingIdCol =
+      input.incoming === 'stripe' ? 'stripe_session_id' : 'netlify_submission_id';
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM orders
+          WHERE source = @twinSource
+            AND ${missingIdCol} IS NULL
+            AND customer_email IS NOT NULL
+            AND lower(customer_email) = lower(@email)
+            AND (total_cents = @total_cents OR total_cents = 0 OR @total_cents = 0)
+            AND abs(julianday(created_at) - julianday('now')) <= @windowDays`,
+      )
+      .all({
+        twinSource,
+        email: input.customer_email.trim(),
+        total_cents: input.total_cents,
+        windowDays: input.windowDays ?? 30,
+      }) as Order[];
+    return rows.length === 1 ? rows[0]! : null;
+  }
+
   list(query: OrderListQuery): OrderListItem[] {
     const where: string[] = [];
     const params: Record<string, unknown> = {};
@@ -160,7 +205,18 @@ export class OrdersRepo {
   }
 
   upsertFromStripe(input: OrderUpsertFromStripeInput): { order: Order; created: boolean } {
-    const existing = this.bySessionId(input.stripe_session_id);
+    let existing = this.bySessionId(input.stripe_session_id);
+    // No session match — before inserting a brand-new row, check whether the
+    // same purchase already arrived as a form submission that never carried
+    // the session id. Adopting it here (instead of inserting) is what stops
+    // the Netlify/Stripe double-up at the source.
+    if (!existing) {
+      existing = this.findUnlinkedTwin({
+        incoming: 'stripe',
+        customer_email: input.customer_email,
+        total_cents: input.total_cents,
+      });
+    }
     if (!existing) {
       const matchStatus = deriveMatchStatus({
         stripe_session_id: input.stripe_session_id,
@@ -197,9 +253,12 @@ export class OrdersRepo {
     }
 
     // Existing order: enrich with Stripe data without clobbering richer Netlify-derived fields.
+    // stripe_session_id is set here too so an adopted form-only twin becomes
+    // fully linked (no-op when the order was found by session id already).
     this.db
       .prepare(
         `UPDATE orders SET
+           stripe_session_id = COALESCE(stripe_session_id, @stripe_session_id),
            customer_name = COALESCE(customer_name, @customer_name),
            customer_email = COALESCE(customer_email, @customer_email),
            customer_phone = COALESCE(customer_phone, @customer_phone),
@@ -249,6 +308,16 @@ export class OrdersRepo {
     let existing = this.byNetlifySubmissionId(input.netlify_submission_id);
     if (!existing && input.stripe_session_id) {
       existing = this.bySessionId(input.stripe_session_id);
+    }
+    // Mirror of the twin-adoption in upsertFromStripe: if Stripe pulled this
+    // purchase first (form arrived without a session id), merge into that
+    // order instead of inserting a duplicate.
+    if (!existing) {
+      existing = this.findUnlinkedTwin({
+        incoming: 'netlify',
+        customer_email: input.customer_email,
+        total_cents: input.total_cents,
+      });
     }
 
     if (!existing) {
@@ -496,7 +565,7 @@ export class OrdersRepo {
       .run(applied ? 1 : 0, id);
   }
 
-  private recomputeMatchStatus(id: number): void {
+  recomputeMatchStatus(id: number): void {
     const o = this.byId(id);
     if (!o) return;
     const next = deriveMatchStatus({

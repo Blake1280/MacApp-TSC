@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import { trpc } from '../trpc';
 import { Button } from '../components/ui/button';
+import { EmptyState } from '../components/EmptyState';
+import { SyncFailureBanner } from '../components/SyncFailureBanner';
 import { formatCents, formatDate } from '../lib/format';
 import type { DashboardSummary, OrderListItem } from '@shared/types';
 
@@ -69,7 +71,13 @@ export default function DashboardPage() {
 
       <EmailOfflineBanner />
 
-      {data && <SyncFailureBanner sync={data.sync} onRetry={() => runAll.mutate()} retrying={runAll.isLoading} />}
+      {data && (
+        <SyncFailureBanner
+          failures={syncFailures(data.sync)}
+          onRetry={() => runAll.mutate()}
+          retrying={runAll.isLoading}
+        />
+      )}
 
       {data && <SyncStrip sync={data.sync} />}
 
@@ -172,15 +180,7 @@ function EmailOfflineBanner() {
   );
 }
 
-function SyncFailureBanner({
-  sync,
-  onRetry,
-  retrying,
-}: {
-  sync: DashboardSummary['sync'];
-  onRetry: () => void;
-  retrying: boolean;
-}) {
+function syncFailures(sync: DashboardSummary['sync']): Array<{ source: string; error: string }> {
   const failures: Array<{ source: string; error: string }> = [];
   if (sync.stripe.connected && sync.stripe.last_error) {
     failures.push({ source: 'Stripe', error: sync.stripe.last_error });
@@ -188,36 +188,14 @@ function SyncFailureBanner({
   if (sync.netlify.connected && sync.netlify.last_error) {
     failures.push({ source: 'Netlify', error: sync.netlify.last_error });
   }
-  if (failures.length === 0) return null;
-  return (
-    <section className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
-      <div className="flex items-start gap-3">
-        <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
-        <div className="flex-1">
-          <div className="text-sm font-medium text-destructive">Sync failure</div>
-          <ul className="text-xs text-destructive/90 mt-1 space-y-0.5">
-            {failures.map((f) => (
-              <li key={f.source}>
-                <span className="font-medium">{f.source}:</span> {f.error}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <Button variant="outline" size="sm" onClick={onRetry} disabled={retrying}>
-          <RefreshCw className={`h-3.5 w-3.5 ${retrying ? 'animate-spin' : ''}`} />
-          Retry
-        </Button>
-      </div>
-    </section>
-  );
+  return failures;
 }
 
 function StockAlertsCard({ alerts }: { alerts: DashboardSummary['stock_alerts'] }) {
   const navigate = useNavigate();
   return (
     <section className="brand-alert-warn overflow-hidden">
-      <header className="px-4 py-3 flex items-center justify-between border-b"
-        style={{ borderColor: 'hsl(var(--rose-200))' }}>
+      <header className="px-4 py-3 flex items-center justify-between border-b border-rose-200">
         <h2 className="text-sm font-medium inline-flex items-center gap-2 brand-alert-warn-strong">
           <AlertTriangle className="h-4 w-4" /> Stock alerts
           <span className="text-xs font-normal opacity-70">
@@ -231,7 +209,7 @@ function StockAlertsCard({ alerts }: { alerts: DashboardSummary['stock_alerts'] 
           Reorder list <ArrowRight className="h-3 w-3" />
         </button>
       </header>
-      <ul className="divide-y" style={{ borderColor: 'hsl(var(--rose-200))' }}>
+      <ul className="divide-y divide-rose-200">
         {alerts.map((a) => (
           <li key={a.id} className="px-4 py-2.5 flex items-center gap-3">
             <div className="flex-1 min-w-0">
@@ -285,20 +263,18 @@ function SourcePill({
   error: string | null;
   onClick: () => void;
 }) {
-  // Brand-toned source pills — connected uses rose-50/rose-700, errors use
-  // destructive, disconnected stays muted. No more bright Tailwind green.
+  // Semantic source pills — sage for healthy, destructive tint for erroring,
+  // muted for disconnected.
   const tone = !connected
     ? 'bg-muted text-muted-foreground'
     : error
-      ? 'bg-destructive/10 text-destructive'
-      : '';
+      ? 'brand-pill-danger'
+      : 'brand-pill-ok';
   const Icon = !connected ? XCircle : error ? AlertTriangle : CheckCircle2;
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full ${
-        tone || 'brand-alert-ok'
-      }`}
+      className={`inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full ${tone}`}
     >
       <Icon className="h-3.5 w-3.5" />
       <span className="font-medium">{label}</span>
@@ -437,19 +413,3 @@ function LowStockCard({ items }: { items: DashboardSummary['low_stock'] }) {
   );
 }
 
-/** Brand empty-state. Tiny balloon glyph + script-font tagline above
- *  the plain-text message so empty looks intentional, not unloved. */
-function EmptyState({ tagline, message }: { tagline: string; message: string }) {
-  return (
-    <div className="brand-empty">
-      <svg className="glyph" width="34" height="34" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <ellipse cx="12" cy="9.5" rx="5.5" ry="6.5" fill="currentColor" fillOpacity="0.18" />
-        <path d="M11 16l1 1 1-1" />
-        <path d="M12 17c-0.6 1.6 0.6 3.4 0 5" />
-      </svg>
-      <div className="tagline">{tagline}</div>
-      <div className="text-xs">{message}</div>
-    </div>
-  );
-}

@@ -4,6 +4,7 @@ import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { trpc } from '../trpc';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { EmptyState } from '../components/EmptyState';
 import type { CatalogueEntry, InventoryItem, RecipeComponentWithItem } from '@shared/types';
 
 export default function RecipeEditorPage() {
@@ -77,7 +78,7 @@ export default function RecipeEditorPage() {
 
       {entry.data && <RecipeHeader entry={entry.data} />}
 
-      <section className="rounded-lg border bg-card overflow-hidden">
+      <section className="brand-surface overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-muted-foreground">
             <tr>
@@ -104,8 +105,8 @@ export default function RecipeEditorPage() {
             ))}
             {components.data && components.data.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground text-sm">
-                  No items in this recipe yet. Add one below.
+                <td colSpan={4}>
+                  <EmptyState message="No items in this recipe yet. Add one below." />
                 </td>
               </tr>
             )}
@@ -165,8 +166,8 @@ export default function RecipeEditorPage() {
 function RecipeHeader({ entry }: { entry: CatalogueEntry }) {
   return (
     <header>
-      <div className="text-xs uppercase tracking-wider text-muted-foreground">{entry.kind}</div>
-      <h1 className="text-2xl font-semibold">{entry.name}</h1>
+      <div className="brand-label">{entry.kind}</div>
+      <h1 className="text-2xl font-serif-brand font-medium leading-tight">{entry.name}</h1>
       <div className="text-sm text-muted-foreground">
         <span className="font-mono">{entry.external_id}</span>
         {entry.default_finish_id && (

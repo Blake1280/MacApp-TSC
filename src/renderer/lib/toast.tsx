@@ -61,7 +61,7 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
       Icon: Info,
     },
     success: {
-      wrapper: 'brand-alert-ok',
+      wrapper: 'brand-alert-success',
       Icon: CheckCircle2,
     },
     warning: {
@@ -69,7 +69,7 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
       Icon: AlertTriangle,
     },
     error: {
-      wrapper: 'border border-destructive bg-destructive/10 text-destructive rounded-lg',
+      wrapper: 'brand-alert-danger',
       Icon: AlertTriangle,
     },
   };
