@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { TrendingDown, AlertTriangle, ChevronRight, Wrench } from 'lucide-react';
 import { trpc } from '../trpc';
 import { formatCents, formatDate } from '../lib/format';
+import { FilterTabs } from '../components/FilterTabs';
+import { EmptyState } from '../components/EmptyState';
 
 type Tab = 'bundle' | 'order';
 type Range = 'all' | '7' | '30' | '90';
@@ -45,16 +47,23 @@ export default function MarginsPage() {
       )}
 
       <div className="flex flex-wrap gap-3 items-center">
-        <div className="inline-flex rounded-md border bg-card p-0.5">
-          <TabBtn active={tab === 'bundle'} onClick={() => setTab('bundle')}>By bundle</TabBtn>
-          <TabBtn active={tab === 'order'} onClick={() => setTab('order')}>By order</TabBtn>
-        </div>
-        <div className="inline-flex rounded-md border bg-card p-0.5 ml-auto">
-          {(['7', '30', '90', 'all'] as const).map((r) => (
-            <TabBtn key={r} active={range === r} onClick={() => setRange(r)}>
-              {r === 'all' ? 'All time' : `Last ${r}d`}
-            </TabBtn>
-          ))}
+        <FilterTabs<Tab>
+          options={[
+            { value: 'bundle', label: 'By bundle' },
+            { value: 'order', label: 'By order' },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
+        <div className="ml-auto">
+          <FilterTabs<Range>
+            options={(['7', '30', '90', 'all'] as const).map((r) => ({
+              value: r,
+              label: r === 'all' ? 'All time' : `Last ${r}d`,
+            }))}
+            value={range}
+            onChange={setRange}
+          />
         </div>
       </div>
 
@@ -70,25 +79,6 @@ export default function MarginsPage() {
         />
       )}
     </div>
-  );
-}
-
-function TabBtn({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-3 py-1.5 text-xs rounded ${active ? 'bg-primary text-primary-foreground' : 'hover:bg-accent/40 text-muted-foreground'}`}
-    >
-      {children}
-    </button>
   );
 }
 
@@ -119,11 +109,11 @@ type OrderRow = {
 };
 
 function BundleTable({ loading, rows }: { loading: boolean; rows: BundleRow[] }) {
-  if (loading) return <Empty>Loading…</Empty>;
-  if (rows.length === 0) return <Empty>No orders in this range.</Empty>;
+  if (loading) return <EmptyState loading surface />;
+  if (rows.length === 0) return <EmptyState surface message="No orders in this range." />;
   return (
-    <div className="rounded-lg border bg-card overflow-hidden">
-      <table className="w-full text-sm">
+    <div className="brand-surface overflow-hidden">
+      <table className="w-full text-sm table-sticky">
         <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
           <tr>
             <th className="text-left px-4 py-2.5 font-medium">Bundle</th>
@@ -164,7 +154,7 @@ function BundleTable({ loading, rows }: { loading: boolean; rows: BundleRow[] })
                 </td>
                 <td className="px-4 py-2.5 text-xs text-muted-foreground">
                   {r.unknown_items_count > 0 && (
-                    <span className="inline-flex items-center gap-1 text-orange-600">
+                    <span className="inline-flex items-center gap-1 text-warning-deep">
                       <AlertTriangle className="h-3 w-3" />
                       {r.unknown_items_count} line{r.unknown_items_count === 1 ? '' : 's'} missing price
                     </span>
@@ -181,11 +171,11 @@ function BundleTable({ loading, rows }: { loading: boolean; rows: BundleRow[] })
 
 function OrderTable({ loading, rows }: { loading: boolean; rows: OrderRow[] }) {
   const navigate = useNavigate();
-  if (loading) return <Empty>Loading…</Empty>;
-  if (rows.length === 0) return <Empty>No orders in this range.</Empty>;
+  if (loading) return <EmptyState loading surface />;
+  if (rows.length === 0) return <EmptyState surface message="No orders in this range." />;
   return (
-    <div className="rounded-lg border bg-card overflow-hidden">
-      <table className="w-full text-sm">
+    <div className="brand-surface overflow-hidden">
+      <table className="w-full text-sm table-sticky">
         <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
           <tr>
             <th className="text-left px-4 py-2.5 font-medium">Order</th>
@@ -212,7 +202,7 @@ function OrderTable({ loading, rows }: { loading: boolean; rows: OrderRow[] }) {
                   <div className="text-xs text-muted-foreground">
                     {r.flow_type === 'bundle' ? (r.bundle_name ?? 'Bundle') : 'BYO'}
                     {r.unknown_items_count > 0 && (
-                      <span className="ml-2 inline-flex items-center gap-1 text-orange-600">
+                      <span className="ml-2 inline-flex items-center gap-1 text-warning-deep">
                         <AlertTriangle className="h-3 w-3" />
                         {r.unknown_items_count} unpriced
                       </span>
@@ -235,14 +225,6 @@ function OrderTable({ loading, rows }: { loading: boolean; rows: OrderRow[] }) {
           })}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-function Empty({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border bg-card px-4 py-12 text-center text-sm text-muted-foreground">
-      {children}
     </div>
   );
 }
@@ -283,7 +265,7 @@ function DataHealthBanner({
                 >
                   Open Catalogue
                 </button>
-                <span className="text-orange-900/60 ml-1">
+                <span className="text-warning-deep opacity-60 ml-1">
                   ({missingRecipes.slice(0, 3).map((r) => r.name).join(', ')}
                   {missingRecipes.length > 3 ? `, +${missingRecipes.length - 3} more` : ''})
                 </span>

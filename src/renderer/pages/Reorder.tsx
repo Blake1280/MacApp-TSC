@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ShoppingCart, ExternalLink, Copy, CheckCircle2 } from 'lucide-react';
 import { trpc } from '../trpc';
 import { Button } from '../components/ui/button';
+import { EmptyState } from '../components/EmptyState';
 import { formatCents } from '../lib/format';
 
 type ReorderItem = {
@@ -48,13 +49,14 @@ export default function ReorderPage() {
         </p>
       </header>
 
-      {list.isLoading && <Empty>Loading…</Empty>}
+      {list.isLoading && <EmptyState loading surface />}
 
       {!list.isLoading && groups.length === 0 && (
-        <Empty>
-          <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-2" />
-          Everything is above its reorder threshold.
-        </Empty>
+        <EmptyState
+          surface
+          tagline="Shelves are stocked."
+          message="Everything is above its reorder threshold."
+        />
       )}
 
       <div className="space-y-4">
@@ -94,7 +96,7 @@ function SupplierCard({
   }
 
   return (
-    <section className="rounded-lg border bg-card overflow-hidden">
+    <section className="brand-surface overflow-hidden">
       <header className="px-4 py-3 border-b flex items-center justify-between gap-3">
         <h2 className={`text-sm font-medium ${isUnlinked ? 'text-muted-foreground' : ''}`}>
           {group.supplier_group}
@@ -169,10 +171,3 @@ function Thumb({ src }: { src: string | null }) {
   );
 }
 
-function Empty({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border bg-card px-4 py-12 text-center text-sm text-muted-foreground">
-      {children}
-    </div>
-  );
-}

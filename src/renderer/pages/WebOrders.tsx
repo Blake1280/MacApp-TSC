@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { RefreshCw, AlertTriangle, CheckCircle2, Clock, XCircle, ExternalLink } from 'lucide-react';
 import { trpc } from '../trpc';
 import { Button } from '../components/ui/button';
+import { EmptyState } from '../components/EmptyState';
+import { FilterTabs } from '../components/FilterTabs';
 import { formatCents, formatDate } from '../lib/format';
 
 /** Web orders — pulls authoritative payment status from the website's
@@ -55,26 +57,18 @@ export default function WebOrdersPage() {
       </header>
 
       {/* Status filter chips */}
-      <div className="flex flex-wrap items-center gap-2 border-b pb-3">
-        {(['all', 'paid', 'awaiting_redirect', 'failed', 'expired', 'refunded'] as const).map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => setStatusFilter(s)}
-            className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
-              statusFilter === s
-                ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-border bg-card text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {labelForStatus(s)} {counts[s] ? <span className="ml-1 opacity-70">{counts[s]}</span> : null}
-          </button>
-        ))}
-      </div>
+      <FilterTabs
+        options={(['all', 'paid', 'awaiting_redirect', 'failed', 'expired', 'refunded'] as const).map(
+          (s) => ({ value: s, label: labelForStatus(s) }),
+        )}
+        value={statusFilter}
+        onChange={setStatusFilter}
+        counts={counts}
+      />
 
       {/* Error banner */}
       {ordersQuery.error && (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive flex items-start gap-2">
+        <div className="brand-alert-danger px-4 py-3 text-sm flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
           <div>
             <div className="font-semibold">Couldn&rsquo;t reach the website API.</div>
@@ -85,14 +79,14 @@ export default function WebOrdersPage() {
 
       {/* Empty / loading */}
       {ordersQuery.isLoading && (
-        <div className="rounded-lg border bg-card px-4 py-12 text-center text-muted-foreground">
-          Loading orders from the website…
-        </div>
+        <EmptyState loading surface message="Loading orders from the website…" />
       )}
       {!ordersQuery.isLoading && (ordersQuery.data?.orders.length ?? 0) === 0 && (
-        <div className="rounded-lg border border-dashed bg-card px-4 py-12 text-center text-muted-foreground">
-          No web orders yet. Customer checkouts will appear here automatically.
-        </div>
+        <EmptyState
+          surface
+          tagline="Quiet day in Bathurst."
+          message="No web orders yet. Customer checkouts will appear here automatically."
+        />
       )}
 
       {/* Orders list */}
@@ -190,23 +184,21 @@ function PaymentBadge({ status }: { status: string }) {
 }
 
 /**
- * Map payment status → brand pill variant. Re-uses the same brand-pill-*
- * classes Orders.tsx uses for app status, so the two pages read as one
- * composition rather than the previous Tailwind-rainbow look.
- *   paid       → confirmed   (rose-300 fill, deep rose text)
+ * Map payment status → brand pill variant.
+ *   paid       → ok          (sage — money actually landed)
  *   awaiting   → new         (rose-50 fill, ring text)
  *   refunded   → refunded    (rose-50 fill, rose-700 text)
- *   failed     → cancelled   (muted)
+ *   failed     → danger      (destructive tint — needs a look)
  *   expired    → cancelled   (muted)
  */
 function badgeConfigForStatus(status: string) {
   switch (status) {
     case 'paid':
-      return { icon: CheckCircle2, pillClass: 'brand-pill-confirmed', label: 'paid' };
+      return { icon: CheckCircle2, pillClass: 'brand-pill-ok', label: 'paid' };
     case 'awaiting_redirect':
       return { icon: Clock, pillClass: 'brand-pill-new', label: 'awaiting' };
     case 'failed':
-      return { icon: XCircle, pillClass: 'brand-pill-cancelled', label: 'failed' };
+      return { icon: XCircle, pillClass: 'brand-pill-danger', label: 'failed' };
     case 'expired':
       return { icon: Clock, pillClass: 'brand-pill-cancelled', label: 'expired' };
     case 'refunded':

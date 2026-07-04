@@ -66,7 +66,7 @@ function StripeSection() {
   const encryptionAvailable = status.data?.encryption_available ?? true;
 
   return (
-    <section className="rounded-lg border bg-card p-5 space-y-3">
+    <section className="brand-surface p-5 space-y-3">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-medium">Stripe</h2>
@@ -78,7 +78,7 @@ function StripeSection() {
       </div>
 
       {!encryptionAvailable && (
-        <div className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="brand-alert-danger p-3 text-sm">
           OS-level encryption isn't available — secrets can't be stored safely.
         </div>
       )}
@@ -173,7 +173,7 @@ function NetlifySection() {
   const targetSet = !!status.data?.form_id;
 
   return (
-    <section className="rounded-lg border bg-card p-5 space-y-3">
+    <section className="brand-surface p-5 space-y-3">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-medium">Netlify Forms — failsafe order source</h2>
@@ -188,7 +188,7 @@ function NetlifySection() {
       {isConnected ? (
         <div className="space-y-3">
           {targetSet ? (
-            <div className="rounded-md border bg-muted/30 p-3 text-sm space-y-1">
+            <div className="brand-surface-inset p-3 text-sm space-y-1">
               <div>
                 <span className="text-xs text-muted-foreground">Site:</span>{' '}
                 <strong>{status.data?.site_name}</strong>
@@ -381,7 +381,7 @@ function PreferencesSection() {
   }
 
   return (
-    <section className="rounded-lg border bg-card p-5 space-y-3">
+    <section className="brand-surface p-5 space-y-3">
       <div>
         <h2 className="font-medium">Quality of life</h2>
         <p className="text-xs text-muted-foreground">
@@ -469,7 +469,7 @@ function BackupSection() {
   const [confirming, setConfirming] = useState(false);
 
   return (
-    <section className="rounded-lg border bg-card p-5 space-y-3">
+    <section className="brand-surface p-5 space-y-3">
       <div>
         <h2 className="font-medium">Backup & data</h2>
         <p className="text-xs text-muted-foreground">
@@ -521,11 +521,11 @@ function BackupSection() {
 
 function ConnectionBadge({ connected }: { connected: boolean }) {
   return connected ? (
-    <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-green-50 text-green-700 border border-green-200">
+    <span className="brand-pill brand-pill-ok">
       <CheckCircle2 className="h-3 w-3" /> Connected
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground border">
+    <span className="brand-pill bg-muted text-muted-foreground">
       <XCircle className="h-3 w-3" /> Not connected
     </span>
   );
@@ -561,7 +561,7 @@ function DemoDataSection() {
   });
 
   return (
-    <section className="rounded-lg border bg-card p-5 space-y-3">
+    <section className="brand-surface p-5 space-y-3">
       <div>
         <h2 className="font-medium">Demo data</h2>
         <p className="text-xs text-muted-foreground">
@@ -602,7 +602,7 @@ function SyncBehaviourSection() {
   }
 
   return (
-    <section className="rounded-lg border bg-card p-5 space-y-3">
+    <section className="brand-surface p-5 space-y-3">
       <div>
         <h2 className="font-medium">Sync behaviour</h2>
         <p className="text-xs text-muted-foreground">

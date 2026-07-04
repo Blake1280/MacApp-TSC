@@ -6,6 +6,7 @@ import { NETLIFY_TOKEN_KEY } from '@main/netlify/client';
 import { pullStripeOrders, recordStripePullFailure } from '@main/sync/stripe.source';
 import { pullNetlifyOrders, recordNetlifyPullFailure } from '@main/sync/netlify.source';
 import { autoApplyEligibleOrders, autoReverseRefundedOrders } from '@main/sync/autoApply';
+import { dedupeStripeNetlifyOrders } from '@main/sync/dedupe';
 
 const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -51,6 +52,22 @@ export async function runStripeSync(reason: 'manual' | 'startup' | 'scheduled'):
   try {
     logger.info('Stripe sync starting', { reason });
     const result = await pullStripeOrders();
+    // Merge any Netlify/Stripe twin pairs BEFORE auto-apply so a freshly
+    // linked order becomes 'stripe_netlify' and is eligible in the same
+    // pass instead of sitting in needs-review until the next sync.
+    try {
+      const dedupe = dedupeStripeNetlifyOrders();
+      if (dedupe.merged.length > 0 || dedupe.skipped.length > 0) {
+        logger.info('Order dedupe summary', {
+          merged: dedupe.merged.length,
+          skipped: dedupe.skipped.length,
+        });
+      }
+    } catch (dedupeErr) {
+      logger.warn('Order dedupe pass failed', {
+        error: dedupeErr instanceof Error ? dedupeErr.message : String(dedupeErr),
+      });
+    }
     // After a successful pull, auto-confirm + apply stock for orders that
     // are double-confirmed and have clean recipes. Refunds reverse stock.
     try {
@@ -95,6 +112,16 @@ export async function runNetlifySync(reason: 'manual' | 'startup' | 'scheduled')
   try {
     logger.info('Netlify sync starting', { reason });
     const result = await pullNetlifyOrders();
+    // Same twin-merge pass as the Stripe sync — idempotent and cheap, and it
+    // covers the case where the Netlify pull lands after Stripe already
+    // inserted its half of the pair.
+    try {
+      dedupeStripeNetlifyOrders();
+    } catch (dedupeErr) {
+      logger.warn('Order dedupe pass failed', {
+        error: dedupeErr instanceof Error ? dedupeErr.message : String(dedupeErr),
+      });
+    }
     lastResult = {
       at: new Date().toISOString(),
       ok: true,

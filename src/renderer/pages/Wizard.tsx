@@ -15,7 +15,7 @@ import { trpc } from '../trpc';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { useToast } from '../lib/toast';
-import logo from '../assets/logo-original.png';
+import logo from '../assets/favicon.svg';
 import type { ImportPreview } from '@shared/types';
 
 const STEPS = [
@@ -82,7 +82,7 @@ export default function WizardPage() {
 
         <Stepper currentIndex={currentIndex} />
 
-        <div className="mt-8 rounded-lg border bg-card shadow-card p-8">
+        <div className="mt-8 brand-surface p-8">
           {step === 'welcome' && <Welcome onNext={next} />}
           {step === 'stripe' && <StripeStep onNext={next} onBack={prev} />}
           {step === 'netlify' && <NetlifyStep onNext={next} onBack={prev} />}
