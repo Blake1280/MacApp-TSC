@@ -29,7 +29,7 @@ jobs:
         run: npx electron-builder install-app-deps
 
       - name: Build macOS package
-        run: npm run package:mac
+        run: npm run package:mac -- --publish never
         env:
           # No Apple Developer cert configured yet, so skip auto-signing.
           # Build still produces a working .dmg; users get a Gatekeeper
