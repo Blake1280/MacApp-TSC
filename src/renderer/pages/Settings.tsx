@@ -27,6 +27,7 @@ export default function SettingsPage() {
       </header>
 
       <StripeSection />
+      <WebsiteConnectionSection />
       <NetlifySection />
       <EmailNotificationsSection />
       <SyncBehaviourSection />
@@ -36,6 +37,60 @@ export default function SettingsPage() {
 
       <AboutSection />
     </div>
+  );
+}
+
+function WebsiteConnectionSection() {
+  const utils = trpc.useUtils();
+  const status = trpc.tscWeb.status.useQuery();
+  const [apiKey, setApiKey] = useState('');
+  const connect = trpc.tscWeb.connect.useMutation({
+    onSuccess: () => {
+      setApiKey('');
+      utils.tscWeb.status.invalidate();
+    },
+  });
+  const disconnect = trpc.tscWeb.disconnect.useMutation({
+    onSuccess: () => utils.tscWeb.status.invalidate(),
+  });
+
+  return (
+    <section className="brand-surface p-5 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-medium">Sweet Creative website</h2>
+          <p className="text-xs text-muted-foreground">
+            Secure connection for paid website orders and stock availability.
+          </p>
+        </div>
+        <ConnectionBadge connected={status.data?.connected ?? false} />
+      </div>
+      {status.data?.connected ? (
+        <Button size="sm" variant="ghost" onClick={() => disconnect.mutate()}>
+          Disconnect this computer
+        </Button>
+      ) : (
+        <form
+          className="flex items-center gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (apiKey.trim()) connect.mutate({ apiKey });
+          }}
+        >
+          <Input
+            type="password"
+            placeholder="Website connection key"
+            value={apiKey}
+            onChange={(event) => setApiKey(event.target.value)}
+            className="font-mono text-xs"
+          />
+          <Button type="submit" disabled={!apiKey.trim() || connect.isLoading}>
+            {connect.isLoading ? 'Testing...' : 'Test & save'}
+          </Button>
+        </form>
+      )}
+      {connect.error && <p className="text-sm text-destructive">{connect.error.message}</p>}
+    </section>
   );
 }
 

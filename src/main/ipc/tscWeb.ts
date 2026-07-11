@@ -16,6 +16,7 @@ import { CatalogueRepo } from '@main/db/repositories/catalogue.repo';
 import { logger } from '@main/logging/logger';
 import { apiGet, apiPost } from '@main/lib/tscWebApi';
 import { app } from 'electron';
+import { clearSecret, hasSecret, setSecret } from '@main/auth/secrets';
 
 type WebOrder = {
   id: number;
@@ -64,6 +65,26 @@ const listOrdersInput = z
   .optional();
 
 export const tscWebRouter = router({
+  status: publicProcedure.query(() => ({ connected: hasSecret('tsc_web_api_key') })),
+
+  connect: publicProcedure
+    .input(z.object({ apiKey: z.string().min(16).max(500) }))
+    .mutation(async ({ input }) => {
+      setSecret('tsc_web_api_key', input.apiKey.trim());
+      try {
+        await apiGet<{ ok: boolean }>('/orders-list?limit=1');
+        return { ok: true as const };
+      } catch (error) {
+        clearSecret('tsc_web_api_key');
+        throw error;
+      }
+    }),
+
+  disconnect: publicProcedure.mutation(() => {
+    clearSecret('tsc_web_api_key');
+    return { ok: true as const };
+  }),
+
   /** Fetch the website's order log. Returns rows ordered most-recent-first. */
   listOrders: publicProcedure.input(listOrdersInput).query(async ({ input }) => {
     const params = new URLSearchParams();
