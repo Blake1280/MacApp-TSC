@@ -64,6 +64,27 @@ export const dashboardRouter = router({
       )
       .all() as OrderListItem[];
 
+    // This is deliberately limited to paid orders. An unpaid Netlify form
+    // belongs in "Needs review", while this queue answers the practical
+    // question: what needs to be made or delivered next?
+    const fulfilment_queue = db
+      .prepare(
+        `SELECT *,
+           CASE WHEN addon_ids_json IS NULL OR addon_ids_json = '[]' THEN 0
+                ELSE (LENGTH(addon_ids_json) - LENGTH(REPLACE(addon_ids_json, ',', ''))) + 1
+           END AS addon_count
+         FROM orders
+         WHERE COALESCE(paid_at, manual_paid_at) IS NOT NULL
+           AND app_status IN ('new', 'confirmed')
+         ORDER BY
+           CASE WHEN date_needed IS NULL OR date_needed = '' THEN 1 ELSE 0 END,
+           date_needed ASC,
+           COALESCE(time_needed, '23:59') ASC,
+           created_at ASC
+         LIMIT 10`,
+      )
+      .all() as OrderListItem[];
+
     const stripeState = readSyncState('stripe');
     const netlifyState = readSyncState('netlify');
 
@@ -93,6 +114,7 @@ export const dashboardRouter = router({
       },
       low_stock,
       stock_alerts,
+      fulfilment_queue,
       recent_orders,
       sync: {
         stripe: {

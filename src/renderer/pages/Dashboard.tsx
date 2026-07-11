@@ -8,6 +8,8 @@ import {
   XCircle,
   RefreshCw,
   Mail,
+  PackageCheck,
+  Truck,
 } from 'lucide-react';
 import { trpc } from '../trpc';
 import { Button } from '../components/ui/button';
@@ -39,6 +41,12 @@ export default function DashboardPage() {
       utils.orders.list.invalidate();
       utils.stripe.status.invalidate();
       utils.netlify.status.invalidate();
+    },
+  });
+  const markFulfilled = trpc.orders.setStatus.useMutation({
+    onSuccess: () => {
+      utils.dashboard.summary.invalidate();
+      utils.orders.list.invalidate();
     },
   });
   const navigate = useNavigate();
@@ -115,6 +123,13 @@ export default function DashboardPage() {
         />
       </section>
 
+      <FulfilmentQueue
+        orders={data?.fulfilment_queue ?? []}
+        onOpen={(id) => navigate(`/orders/${id}`)}
+        onMarkFulfilled={(id) => markFulfilled.mutate({ id, app_status: 'fulfilled' })}
+        completingId={markFulfilled.isLoading ? markFulfilled.variables?.id : undefined}
+      />
+
       <div className="grid md:grid-cols-2 gap-4">
         <RecentOrdersCard orders={data?.recent_orders ?? []} />
         <LowStockCard items={data?.low_stock ?? []} />
@@ -123,6 +138,83 @@ export default function DashboardPage() {
       {data && data.stock_alerts.length > 0 && <StockAlertsCard alerts={data.stock_alerts} />}
     </div>
   );
+}
+
+function FulfilmentQueue({
+  orders,
+  onOpen,
+  onMarkFulfilled,
+  completingId,
+}: {
+  orders: OrderListItem[];
+  onOpen: (id: number) => void;
+  onMarkFulfilled: (id: number) => void;
+  completingId?: number;
+}) {
+  return (
+    <section className="brand-surface overflow-hidden">
+      <header className="px-4 py-3 border-b border-border flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-medium inline-flex items-center gap-2">
+            <PackageCheck className="h-4 w-4" /> Fulfilment queue
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Paid orders that still need your attention.</p>
+        </div>
+        <span className="brand-pill">{orders.length} active</span>
+      </header>
+      {orders.length === 0 ? (
+        <EmptyState tagline="Nothing waiting to be made." message="Paid orders will appear here in due-date order." />
+      ) : (
+        <ul className="divide-y">
+          {orders.map((order) => {
+            const isConfirmed = order.app_status === 'confirmed';
+            const isPickup = order.delivery_zone === 'pickup';
+            const FulfilmentIcon = isPickup ? PackageCheck : Truck;
+            return (
+              <li key={order.id} className="px-4 py-3 flex items-center gap-3">
+                <FulfilmentIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                <button
+                  onClick={() => onOpen(order.id)}
+                  className="flex-1 min-w-0 text-left hover:opacity-75"
+                >
+                  <div className="text-sm truncate">
+                    {order.customer_name ?? 'Customer'}
+                    {order.recipient ? <span className="text-muted-foreground"> for {order.recipient}</span> : null}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {neededLabel(order)} · {isPickup ? 'pickup' : 'delivery'}
+                    {order.customer_phone ? ` · ${order.customer_phone}` : ''}
+                  </div>
+                </button>
+                {isConfirmed ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => onMarkFulfilled(order.id)}
+                    disabled={completingId === order.id}
+                  >
+                    {completingId === order.id ? 'Completing...' : 'Mark fulfilled'}
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={() => onOpen(order.id)}>
+                    Confirm & make
+                  </Button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function neededLabel(order: OrderListItem): string {
+  if (!order.date_needed) return 'No date supplied';
+  const date = new Date(`${order.date_needed}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return order.date_needed;
+  const day = date.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+  return order.time_needed ? `${day}, ${order.time_needed}` : day;
 }
 
 /**

@@ -268,6 +268,8 @@ export type DashboardSummary = {
     lowest_date: string | null;
     short_by: number;
   }>;
+  /** Paid orders that still need to be made or completed, sorted by due date. */
+  fulfilment_queue: OrderListItem[];
   recent_orders: OrderListItem[];
   sync: {
     stripe: { connected: boolean; last_synced_at: string | null; last_error: string | null };
