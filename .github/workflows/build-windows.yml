@@ -28,6 +28,16 @@ jobs:
       - name: Build Windows package
         run: npm run package:win -- --publish never
 
+      # Keep latest.yml's URL in lockstep with the sanitised GitHub asset name.
+      - name: Align updater manifest filenames
+        shell: pwsh
+        run: |
+          Get-ChildItem dist -Filter "latest*.yml" | ForEach-Object {
+            $content = Get-Content $_.FullName -Raw
+            $content.Replace('Sweet-Creative-Inventory', 'Sweet.Creative.Inventory') |
+              Set-Content $_.FullName -NoNewline
+          }
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:

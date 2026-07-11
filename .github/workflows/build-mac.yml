@@ -36,6 +36,12 @@ jobs:
           # warning on first launch (right-click -> Open).
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
+      # electron-builder writes hyphens into the updater manifest while the
+      # packaged artifact is sanitised with dots. The release asset and its
+      # manifest must agree or electron-updater downloads a 404.
+      - name: Align updater manifest filenames
+        run: perl -pi -e 's/Sweet-Creative-Inventory/Sweet.Creative.Inventory/g' dist/latest*.yml
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
