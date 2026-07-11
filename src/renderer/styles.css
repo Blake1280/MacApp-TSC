@@ -57,7 +57,7 @@
      unit proportionally — pinned px values (e.g. sidebar wordmark) stay
      untouched. */
   html {
-    font-size: 17px;
+    font-size: 18px;
     font-family: 'Jost', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
 
@@ -83,6 +83,16 @@
   /* Keep native form controls in the bundled brand font on both Windows and macOS. */
   button, input, textarea, select {
     font: inherit;
+  }
+
+  /* Keep secondary details readable at a normal desk distance. */
+  .text-xs {
+    font-size: 0.82rem;
+    line-height: 1.35rem;
+  }
+  [class*="text-[10px]"] {
+    font-size: 0.76rem !important;
+    line-height: 1.2rem;
   }
 
   h1, h2 {
@@ -245,7 +255,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
-    font-size: 0.7rem;
+    font-size: 0.78rem;
     padding: 0.125rem 0.5rem;
     border-radius: 9999px;
     font-weight: 500;
@@ -266,7 +276,7 @@
      The tiny uppercase field/section label used across detail panes and
      forms. One class so tracking/size/colour stop drifting per page. */
   .brand-label {
-    font-size: 0.65rem;
+    font-size: 0.72rem;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: hsl(var(--muted-foreground));
@@ -285,6 +295,10 @@
     background-color: hsl(var(--muted) / 0.95);
     backdrop-filter: blur(4px);
     box-shadow: 0 1px 0 hsl(var(--border));
+  }
+  table.table-sticky th,
+  table.table-sticky td {
+    min-height: 3rem;
   }
 
   /* --- Empty-state container ---

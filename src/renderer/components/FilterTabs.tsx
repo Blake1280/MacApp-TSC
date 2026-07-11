@@ -28,7 +28,7 @@ export function FilterTabs<T extends string>({
             type="button"
             onClick={() => onChange(o.value)}
             className={cn(
-              'px-3 py-1 text-xs rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              'px-3 py-1.5 text-sm rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               active
                 ? 'bg-primary text-primary-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground hover:bg-muted/60',
