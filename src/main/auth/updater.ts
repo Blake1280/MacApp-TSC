@@ -1,4 +1,4 @@
-import { app } from 'electron';
+import { app, dialog } from 'electron';
 import { logger } from '@main/logging/logger';
 
 /**
@@ -18,17 +18,42 @@ export async function initAutoUpdater(): Promise<void> {
     autoUpdater.autoInstallOnAppQuit = true;
 
     autoUpdater.on('checking-for-update', () => logger.info('Checking for update'));
-    autoUpdater.on('update-available', (info) => logger.info('Update available', info));
+    autoUpdater.on('update-available', (info) => {
+      logger.info('Update available', info);
+      void dialog.showMessageBox({
+        type: 'info',
+        title: 'Sweet Creative Inventory update',
+        message: `Version ${info.version} is downloading in the background.`,
+        detail: 'You can keep working. The app will let you know when it is ready to install.',
+        buttons: ['OK'],
+      });
+    });
     autoUpdater.on('update-not-available', () => logger.debug('No update available'));
     autoUpdater.on('error', (err) => logger.warn('Auto-update error', err));
     autoUpdater.on('download-progress', (p) =>
       logger.debug('Download progress', { percent: p.percent }),
     );
-    autoUpdater.on('update-downloaded', (info) =>
-      logger.info('Update downloaded; will install on quit', info),
-    );
+    autoUpdater.on('update-downloaded', (info) => {
+      logger.info('Update downloaded; ready to install', info);
+      void dialog
+        .showMessageBox({
+          type: 'info',
+          title: 'Update ready',
+          message: `Version ${info.version} is ready to install.`,
+          detail: 'Restart now to install it, or choose Later and it will install when you next quit the app.',
+          buttons: ['Restart and install', 'Later'],
+          defaultId: 0,
+          cancelId: 1,
+        })
+        .then(({ response }) => {
+          if (response === 0) autoUpdater.quitAndInstall();
+        });
+    });
 
-    await autoUpdater.checkForUpdates();
+    // Give the window a moment to become usable before checking network state.
+    setTimeout(() => {
+      void autoUpdater.checkForUpdates();
+    }, 3_000);
   } catch (err) {
     // Most common cause: publish target not configured yet, which is fine.
     logger.debug('Auto-updater not active', { reason: String(err) });
