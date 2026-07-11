@@ -58,6 +58,7 @@
      untouched. */
   html {
     font-size: 17px;
+    font-family: 'Jost', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
 
   body {
@@ -77,6 +78,11 @@
     font-feature-settings: 'cv11', 'ss01';
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+  }
+
+  /* Keep native form controls in the bundled brand font on both Windows and macOS. */
+  button, input, textarea, select {
+    font: inherit;
   }
 
   h1, h2 {

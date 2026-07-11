@@ -96,6 +96,16 @@ export const ordersRouter = router({
     return new OrdersRepo(getDb()).setStatus(input.id, 'confirmed');
   }),
 
+  // Stocktake can be incomplete without blocking fulfilment. This only moves
+  // the order to confirmed; it creates no inventory movements.
+  confirmWithoutStock: publicProcedure.input(orderActionSchema).mutation(({ input }) => {
+    const orders = new OrdersRepo(getDb());
+    const order = orders.byId(input.id);
+    if (!order) throw new Error(`Order ${input.id} not found`);
+    if (!order.paid_at) throw new Error('Only paid orders can be confirmed.');
+    return orders.setStatus(input.id, 'confirmed');
+  }),
+
   reverseStock: publicProcedure.input(orderActionSchema).mutation(({ input }) => {
     reverseOrderStock(input.id);
     return new OrdersRepo(getDb()).byId(input.id);

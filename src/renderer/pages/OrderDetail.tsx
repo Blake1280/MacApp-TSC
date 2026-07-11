@@ -72,6 +72,19 @@ export default function OrderDetailPage() {
     },
     onError: (err) => toast({ title: 'Confirm failed', description: err.message, variant: 'error' }),
   });
+  const confirmWithoutStock = trpc.orders.confirmWithoutStock.useMutation({
+    onSuccess: () => {
+      utils.orders.byId.invalidate({ id });
+      utils.orders.list.invalidate();
+      utils.dashboard.summary.invalidate();
+      toast({
+        title: 'Order confirmed',
+        description: 'No stock was deducted. Apply it later after stocktake.',
+        variant: 'success',
+      });
+    },
+    onError: (err) => toast({ title: 'Confirm failed', description: err.message, variant: 'error' }),
+  });
   const reverse = trpc.orders.reverseStock.useMutation({
     onSuccess: () => {
       utils.orders.byId.invalidate({ id });
@@ -131,6 +144,8 @@ export default function OrderDetailPage() {
               !!preview.data?.unresolvedRecipes.length
             }
             confirmLoading={confirm.isLoading}
+            onConfirmWithoutStock={() => confirmWithoutStock.mutate({ id })}
+            confirmWithoutStockLoading={confirmWithoutStock.isLoading}
             onReverse={() => reverse.mutate({ id })}
             reverseLoading={reverse.isLoading}
             onMarkPaid={() => markPaid.mutate({ id })}
@@ -391,6 +406,8 @@ function OrderHeader({
   onConfirm,
   confirmDisabled,
   confirmLoading,
+  onConfirmWithoutStock,
+  confirmWithoutStockLoading,
   onReverse,
   reverseLoading,
   onMarkPaid,
@@ -404,6 +421,8 @@ function OrderHeader({
   onConfirm: () => void;
   confirmDisabled: boolean;
   confirmLoading: boolean;
+  onConfirmWithoutStock: () => void;
+  confirmWithoutStockLoading: boolean;
   onReverse: () => void;
   reverseLoading: boolean;
   onMarkPaid: () => void;
@@ -461,9 +480,19 @@ function OrderHeader({
             {markPaidLoading ? 'Marking…' : 'Mark paid (verified externally)'}
           </Button>
         )}
-        {paid && order.app_status === 'new' && (
+        {paid && order.stock_applied === 0 && (order.app_status === 'new' || order.app_status === 'confirmed') && (
           <Button onClick={onConfirm} disabled={confirmDisabled}>
             {confirmLoading ? 'Applying stock…' : 'Confirm & deduct stock'}
+          </Button>
+        )}
+        {paid && order.app_status === 'new' && (
+          <Button
+            onClick={onConfirmWithoutStock}
+            disabled={confirmWithoutStockLoading}
+            variant="outline"
+            title="Keeps the order moving without changing inventory during stocktake"
+          >
+            {confirmWithoutStockLoading ? 'Confirming...' : 'Confirm without stocktake'}
           </Button>
         )}
         {order.app_status === 'confirmed' && (
