@@ -44,6 +44,7 @@ jobs:
             dist/*.dmg
             dist/*.zip
             dist/*.blockmap
+            dist/latest*.yml
           retention-days: 30
           if-no-files-found: error
 
@@ -59,7 +60,7 @@ jobs:
           shopt -s nullglob
           # Filenames contain spaces ("Sweet Creative Inventory-…") so we
           # build an array and expand quoted to keep each file as one arg.
-          files=( dist/*.dmg dist/*.zip dist/*.blockmap )
+          files=( dist/*.dmg dist/*.zip dist/*.blockmap dist/latest*.yml )
           if [ ${#files[@]} -eq 0 ]; then
             echo "::error::No release artifacts found in dist/" >&2
             ls -la dist/ || true

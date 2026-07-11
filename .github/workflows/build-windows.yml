@@ -1,0 +1,62 @@
+name: Build Windows
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Rebuild native modules against Electron ABI
+        run: npx electron-builder install-app-deps
+
+      - name: Build Windows package
+        run: npm run package:win
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: |
+            dist/*.exe
+            dist/*.blockmap
+            dist/latest*.yml
+          retention-days: 30
+          if-no-files-found: error
+
+      # The macOS workflow creates the tagged release; this job then adds the
+      # Windows installer and latest.yml feed used by electron-updater.
+      - name: Attach Windows updater files to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $ready = $false
+          for ($attempt = 1; $attempt -le 72; $attempt++) {
+            gh release view $tag --repo $env:GITHUB_REPOSITORY 2>$null
+            if ($LASTEXITCODE -eq 0) { $ready = $true; break }
+            Start-Sleep -Seconds 10
+          }
+          if (-not $ready) { throw "Timed out waiting for release $tag" }
+          $files = Get-ChildItem dist -File | Where-Object {
+            $_.Extension -in '.exe', '.blockmap' -or $_.Name -like 'latest*.yml'
+          } | ForEach-Object FullName
+          if ($files.Count -eq 0) { throw 'No Windows updater files were produced.' }
+          gh release upload $tag $files --repo $env:GITHUB_REPOSITORY --clobber

@@ -57,12 +57,10 @@ mac:
 dmg:
   title: ${productName}
 
-# Auto-update target. Switch from null to 'github' (or s3, etc.) once a public
-# release feed exists. While null the app simply skips update checks.
-publish: null
-# Example for GitHub Releases (uncomment + set repo when ready):
-# publish:
-#   provider: github
-#   owner: thesweetcreative
-#   repo: sweet-creative-inventory
-#   private: true
+# Installed builds check this public GitHub Release feed at launch. The
+# updater downloads in the background and installs when the user quits.
+publish:
+  provider: github
+  owner: Blake1280
+  repo: MacApp-TSC
+  private: false
