@@ -53,6 +53,8 @@ function WebsiteConnectionSection() {
   const disconnect = trpc.tscWeb.disconnect.useMutation({
     onSuccess: () => utils.tscWeb.status.invalidate(),
   });
+  const push = trpc.tscWeb.pushCloudInventory.useMutation({ onSuccess: () => utils.inventory.list.invalidate() });
+  const pull = trpc.tscWeb.pullCloudInventory.useMutation({ onSuccess: () => utils.inventory.list.invalidate() });
 
   return (
     <section className="brand-surface p-5 space-y-3">
@@ -66,9 +68,18 @@ function WebsiteConnectionSection() {
         <ConnectionBadge connected={status.data?.connected ?? false} />
       </div>
       {status.data?.connected ? (
-        <Button size="sm" variant="ghost" onClick={() => disconnect.mutate()}>
-          Disconnect this computer
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" onClick={() => pull.mutate()} disabled={pull.isLoading}>
+            <RefreshCw className={`h-4 w-4 ${pull.isLoading ? 'animate-spin' : ''}`} />
+            {pull.isLoading ? 'Pulling...' : 'Pull cloud stock'}
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => push.mutate()} disabled={push.isLoading}>
+            {push.isLoading ? 'Publishing...' : 'Publish this stock'}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => disconnect.mutate()}>
+            Disconnect this computer
+          </Button>
+        </div>
       ) : (
         <form
           className="flex items-center gap-2"

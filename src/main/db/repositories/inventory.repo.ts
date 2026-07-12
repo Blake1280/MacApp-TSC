@@ -165,4 +165,31 @@ export class InventoryRepo {
       .all() as Array<{ category: string }>;
     return rows.map((r) => r.category);
   }
+
+  /** Apply the stock fields received from the shared cloud. These writes do
+   * not create local movements: the cloud is reflecting a movement already
+   * made on another computer, not a second physical stock change. */
+  applyCloudSnapshot(rows: Array<{
+    sku: string; name: string | null; category: string | null; on_hand: number;
+    reorder_at: number | null; archived: boolean; updated_at: string;
+  }>): { created: number; updated: number } {
+    let created = 0;
+    let updated = 0;
+    const tx = this.db.transaction(() => {
+      for (const row of rows) {
+        const existing = this.bySku(row.sku);
+        if (existing) {
+          this.db.prepare(`UPDATE inventory_items SET name=?, category=?, on_hand=?, reorder_at=?, archived=?, updated_at=? WHERE id=?`)
+            .run(row.name ?? existing.name, row.category, row.on_hand, row.reorder_at ?? 0, row.archived ? 1 : 0, row.updated_at, existing.id);
+          updated++;
+        } else {
+          this.db.prepare(`INSERT INTO inventory_items (sku, name, category, unit, on_hand, reorder_at, archived, updated_at) VALUES (?, ?, ?, 'each', ?, ?, ?, ?)`)
+            .run(row.sku, row.name ?? row.sku, row.category, row.on_hand, row.reorder_at ?? 0, row.archived ? 1 : 0, row.updated_at);
+          created++;
+        }
+      }
+    });
+    tx();
+    return { created, updated };
+  }
 }

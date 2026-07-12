@@ -85,6 +85,19 @@ export const tscWebRouter = router({
     return { ok: true as const };
   }),
 
+  pushCloudInventory: publicProcedure.mutation(async () => {
+    const items = new InventoryRepo(getDb()).list({ includeArchived: true, lowStockOnly: false })
+      .filter((item) => item.stock_tracked !== 0)
+      .map((item) => ({ sku: item.sku, name: item.name, category: item.category, on_hand: item.on_hand,
+        reorder_at: item.reorder_at, archived: !!item.archived, updated_at: item.updated_at }));
+    return apiPost<{ ok: boolean; accepted: number; ignored: number }>('/inventory-sync', { items });
+  }),
+
+  pullCloudInventory: publicProcedure.mutation(async () => {
+    const cloud = await apiGet<{ ok: boolean; items: Array<{ sku: string; name: string | null; category: string | null; on_hand: number; reorder_at: number | null; archived: boolean; updated_at: string }> }>('/inventory-sync');
+    return new InventoryRepo(getDb()).applyCloudSnapshot(cloud.items.filter((item) => !item.sku.startsWith('web:')));
+  }),
+
   /** Fetch the website's order log. Returns rows ordered most-recent-first. */
   listOrders: publicProcedure.input(listOrdersInput).query(async ({ input }) => {
     const params = new URLSearchParams();
