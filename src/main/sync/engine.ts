@@ -7,16 +7,18 @@ import { pullStripeOrders, recordStripePullFailure } from '@main/sync/stripe.sou
 import { pullNetlifyOrders, recordNetlifyPullFailure } from '@main/sync/netlify.source';
 import { autoApplyEligibleOrders, autoReverseRefundedOrders } from '@main/sync/autoApply';
 import { dedupeStripeNetlifyOrders } from '@main/sync/dedupe';
+import { pullCloudState } from '@main/sync/cloud.source';
 
 const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
 
 let timer: NodeJS.Timeout | null = null;
 let inFlightStripe = false;
 let inFlightNetlify = false;
+let inFlightCloud = false;
 let lastResult: {
   at: string;
   ok: boolean;
-  source: 'stripe' | 'netlify';
+  source: 'stripe' | 'netlify' | 'cloud';
   fetched?: number;
   inserted?: number;
   updated?: number;
@@ -28,7 +30,24 @@ export function getLastSyncResult() {
 }
 
 export function isSyncing(): boolean {
-  return inFlightStripe || inFlightNetlify;
+  return inFlightStripe || inFlightNetlify || inFlightCloud;
+}
+
+async function runCloudSync(reason: 'manual' | 'startup' | 'scheduled'): Promise<void> {
+  if (inFlightCloud) return;
+  inFlightCloud = true;
+  try {
+    logger.info('Shared cloud sync starting', { reason });
+    const result = await pullCloudState();
+    lastResult = { at: new Date().toISOString(), ok: true, source: 'cloud', fetched: result.fetched, inserted: result.inserted, updated: result.updated };
+    logger.info('Shared cloud sync complete', result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    lastResult = { at: new Date().toISOString(), ok: false, source: 'cloud', error: message };
+    logger.error('Shared cloud sync failed', { reason, error: message });
+  } finally {
+    inFlightCloud = false;
+  }
 }
 
 function netlifyConfigured(): boolean {
@@ -141,6 +160,10 @@ export async function runNetlifySync(reason: 'manual' | 'startup' | 'scheduled')
 }
 
 export async function runAllSync(reason: 'manual' | 'startup' | 'scheduled'): Promise<void> {
+  if (hasSecret('tsc_web_api_key')) {
+    await runCloudSync(reason);
+    return;
+  }
   // Run Netlify first so structured customisation is in place when Stripe enriches.
   await runNetlifySync(reason);
   await runStripeSync(reason);

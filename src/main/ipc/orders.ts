@@ -17,6 +17,28 @@ import {
   previewOrderRecipes,
   reverseOrderStock,
 } from '@main/sync/stockApplier';
+import { apiPatch, apiPost } from '@main/lib/tscWebApi';
+import type { Order, OrderAppStatus } from '@shared/types';
+import { hasSecret } from '@main/auth/secrets';
+
+function cloudOrderId(order: Order): number | null {
+  if (!order.raw_stripe_json) return null;
+  try { const id = Number((JSON.parse(order.raw_stripe_json) as { id?: unknown }).id); return Number.isInteger(id) && id > 0 ? id : null; } catch { return null; }
+}
+
+function cloudWorkflow(status: OrderAppStatus): string {
+  return status === 'fulfilled' ? 'completed' : status === 'refunded' ? 'cancelled' : status;
+}
+
+async function syncCloudOrder(order: Order, status: OrderAppStatus, inventoryAction?: 'deduct' | 'release'): Promise<void> {
+  const orderId = cloudOrderId(order);
+  if (!orderId) return;
+  await apiPatch('/order-action', { order_id: orderId, workflow_status: cloudWorkflow(status) });
+  if (inventoryAction) {
+    const lines = previewOrderRecipes(order.id).lines.filter((line) => line.quantity > 0).map((line) => ({ sku: line.inventory_sku, quantity: Math.round(line.quantity) }));
+    if (lines.length) await apiPost('/inventory-action', { order_id: orderId, action: inventoryAction, lines });
+  }
+}
 
 export const ordersRouter = router({
   list: publicProcedure
@@ -62,7 +84,11 @@ export const ordersRouter = router({
 
   setStatus: publicProcedure
     .input(orderSetStatusSchema)
-    .mutation(({ input }) => new OrdersRepo(getDb()).setStatus(input.id, input.app_status)),
+    .mutation(async ({ input }) => {
+      const order = new OrdersRepo(getDb()).setStatus(input.id, input.app_status);
+      await syncCloudOrder(order, input.app_status, input.app_status === 'fulfilled' ? 'deduct' : input.app_status === 'cancelled' ? 'release' : undefined);
+      return order;
+    }),
 
   markPaid: publicProcedure
     .input(orderMarkPaidSchema)
@@ -72,8 +98,9 @@ export const ordersRouter = router({
     .input(orderUnmarkPaidSchema)
     .mutation(({ input }) => new OrdersRepo(getDb()).unmarkPaid(input.id)),
 
-  createManual: publicProcedure.input(manualOrderCreateSchema).mutation(({ input }) =>
-    new OrdersRepo(getDb()).createManual({
+  createManual: publicProcedure.input(manualOrderCreateSchema).mutation(async ({ input }) => {
+    const db = getDb();
+    const order = new OrdersRepo(db).createManual({
       customer_name: input.customer_name ?? null,
       customer_email: input.customer_email ?? null,
       customer_phone: input.customer_phone ?? null,
@@ -88,31 +115,46 @@ export const ordersRouter = router({
       palette_id: input.palette_id ?? null,
       addon_ids: input.addon_ids,
       mark_paid: input.mark_paid,
-    }),
-  ),
+    });
+    if (hasSecret('tsc_web_api_key')) {
+      const result = await apiPost<{ ok: boolean; order: Record<string, unknown> }>('/manual-order', { ...input, amount_cents: input.total_cents });
+      db.prepare("UPDATE orders SET raw_stripe_json = ?, updated_at = datetime('now') WHERE id = ?").run(JSON.stringify(result.order), order.id);
+      return new OrdersRepo(db).byId(order.id)!;
+    }
+    return order;
+  }),
 
-  confirm: publicProcedure.input(orderActionSchema).mutation(({ input }) => {
+  confirm: publicProcedure.input(orderActionSchema).mutation(async ({ input }) => {
     applyOrderStock(input.id);
-    return new OrdersRepo(getDb()).setStatus(input.id, 'confirmed');
+    const order = new OrdersRepo(getDb()).setStatus(input.id, 'confirmed');
+    await syncCloudOrder(order, 'confirmed', 'deduct');
+    return order;
   }),
 
   // Stocktake can be incomplete without blocking fulfilment. This only moves
   // the order to confirmed; it creates no inventory movements.
-  confirmWithoutStock: publicProcedure.input(orderActionSchema).mutation(({ input }) => {
+  confirmWithoutStock: publicProcedure.input(orderActionSchema).mutation(async ({ input }) => {
     const orders = new OrdersRepo(getDb());
     const order = orders.byId(input.id);
     if (!order) throw new Error(`Order ${input.id} not found`);
     if (!order.paid_at) throw new Error('Only paid orders can be confirmed.');
-    return orders.setStatus(input.id, 'confirmed');
+    const updated = orders.setStatus(input.id, 'confirmed');
+    await syncCloudOrder(updated, 'confirmed');
+    return updated;
   }),
 
-  reverseStock: publicProcedure.input(orderActionSchema).mutation(({ input }) => {
+  reverseStock: publicProcedure.input(orderActionSchema).mutation(async ({ input }) => {
     reverseOrderStock(input.id);
-    return new OrdersRepo(getDb()).byId(input.id);
+    const order = new OrdersRepo(getDb()).byId(input.id)!;
+    await syncCloudOrder(order, order.app_status);
+    return order;
   }),
 
-  delete: publicProcedure.input(orderDeleteSchema).mutation(({ input }) => {
-    new OrdersRepo(getDb()).delete(input.id);
+  delete: publicProcedure.input(orderDeleteSchema).mutation(async ({ input }) => {
+    const orders = new OrdersRepo(getDb());
+    const order = orders.byId(input.id);
+    if (order) await syncCloudOrder(order, 'cancelled', 'release');
+    orders.delete(input.id);
     return { ok: true as const };
   }),
 });

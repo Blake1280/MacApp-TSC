@@ -7,6 +7,10 @@ import {
   exportStocktake,
 } from '@main/importer/stocktakeXlsxImporter';
 import { stocktakeApplySchema, stocktakePreviewSchema } from '@shared/schema';
+import { getDb } from '@main/db/connection';
+import { InventoryRepo } from '@main/db/repositories/inventory.repo';
+import { apiPost } from '@main/lib/tscWebApi';
+import { hasSecret } from '@main/auth/secrets';
 
 export const stocktakeRouter = router({
   pickPath: publicProcedure
@@ -30,15 +34,22 @@ export const stocktakeRouter = router({
 
   apply: publicProcedure
     .input(stocktakeApplySchema)
-    .mutation(({ input }) =>
-      applyStocktakeImport(input.path, {
+    .mutation(async ({ input }) => {
+      const result = applyStocktakeImport(input.path, {
         createMissingInventory: input.createMissingInventory,
         upsertCatalogue: input.upsertCatalogue,
         upsertRecipes: input.upsertRecipes,
         acknowledgeStale: input.acknowledgeStale,
         archiveMissing: input.archiveMissing,
-      }),
-    ),
+      });
+      if (hasSecret('tsc_web_api_key')) {
+        const items = new InventoryRepo(getDb()).list({ includeArchived: true, lowStockOnly: false })
+          .filter((item) => item.stock_tracked !== 0)
+          .map((item) => ({ sku: item.sku, name: item.name, category: item.category, on_hand: item.on_hand, reorder_at: item.reorder_at, archived: !!item.archived, updated_at: item.updated_at }));
+        await apiPost('/inventory-sync', { items });
+      }
+      return result;
+    }),
 
   /**
    * Export the current inventory to a stocktake XLSX. Two-step UX:

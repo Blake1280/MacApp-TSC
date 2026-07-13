@@ -17,18 +17,19 @@ import pkg from '../../../package.json';
 const APP_VERSION = (pkg as { version: string }).version;
 
 export default function SettingsPage() {
+  const website = trpc.tscWeb.status.useQuery();
   return (
     <div className="p-8 space-y-6 max-w-3xl">
       <header className="page-h1">
         <h1 className="text-3xl font-serif-brand font-medium leading-tight">Settings</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Connect external services so orders flow into the app automatically.
+          One secure website connection keeps orders and stock shared across every device.
         </p>
       </header>
 
-      <StripeSection />
       <WebsiteConnectionSection />
-      <NetlifySection />
+      {!website.data?.connected && <StripeSection />}
+      {!website.data?.connected && <NetlifySection />}
       <EmailNotificationsSection />
       <SyncBehaviourSection />
       <PreferencesSection />
@@ -62,13 +63,17 @@ function WebsiteConnectionSection() {
         <div>
           <h2 className="font-medium">Sweet Creative website</h2>
           <p className="text-xs text-muted-foreground">
-            Secure connection for paid website orders and stock availability.
+            Cloud source of truth for website orders, payment status and inventory on Windows, Mac and phones.
           </p>
         </div>
         <ConnectionBadge connected={status.data?.connected ?? false} />
       </div>
       {status.data?.connected ? (
-        <div className="flex flex-wrap gap-2">
+        <div className="space-y-3">
+          <p className="text-sm text-emerald-700">
+            Connected. Stripe and Netlify secrets stay on the website server; this app only uses the protected shared API.
+          </p>
+          <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="outline" onClick={() => pull.mutate()} disabled={pull.isLoading}>
             <RefreshCw className={`h-4 w-4 ${pull.isLoading ? 'animate-spin' : ''}`} />
             {pull.isLoading ? 'Pulling...' : 'Pull cloud stock'}
@@ -79,6 +84,7 @@ function WebsiteConnectionSection() {
           <Button size="sm" variant="ghost" onClick={() => disconnect.mutate()}>
             Disconnect this computer
           </Button>
+          </div>
         </div>
       ) : (
         <form

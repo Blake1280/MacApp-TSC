@@ -70,3 +70,19 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   }
   return respBody as T;
 }
+
+export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${TSC_WEB_BASE}${path}`, {
+    method: 'PATCH',
+    headers: { 'X-API-Key': apiKey(), 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const text = await res.text();
+  let respBody: unknown;
+  try { respBody = JSON.parse(text); } catch { respBody = { error: text }; }
+  if (!res.ok) {
+    const msg = (respBody as { error?: string }).error || `HTTP ${res.status}`;
+    throw new TscWebApiError(res.status, msg);
+  }
+  return respBody as T;
+}

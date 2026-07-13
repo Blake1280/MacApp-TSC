@@ -10,6 +10,16 @@ import {
   inventoryListQuerySchema,
   stockAdjustSchema,
 } from '@shared/schema';
+import { apiPost } from '@main/lib/tscWebApi';
+import { hasSecret } from '@main/auth/secrets';
+
+async function publishInventory(repo: InventoryRepo): Promise<void> {
+  if (!hasSecret('tsc_web_api_key')) return;
+  const items = repo.list({ includeArchived: true, lowStockOnly: false })
+    .filter((item) => item.stock_tracked !== 0)
+    .map((item) => ({ sku: item.sku, name: item.name, category: item.category, on_hand: item.on_hand, reorder_at: item.reorder_at, archived: !!item.archived, updated_at: item.updated_at }));
+  await apiPost('/inventory-sync', { items });
+}
 
 type ReorderItem = {
   inventory_item_id: number;
@@ -54,22 +64,24 @@ export const inventoryRouter = router({
 
   create: publicProcedure
     .input(inventoryItemCreateSchema)
-    .mutation(({ input }) => new InventoryRepo(getDb()).create(input)),
+    .mutation(async ({ input }) => { const repo = new InventoryRepo(getDb()); const item = repo.create(input); await publishInventory(repo); return item; }),
 
   update: publicProcedure
     .input(inventoryItemUpdateSchema)
-    .mutation(({ input }) => new InventoryRepo(getDb()).update(input)),
+    .mutation(async ({ input }) => { const repo = new InventoryRepo(getDb()); const item = repo.update(input); await publishInventory(repo); return item; }),
 
   adjust: publicProcedure
     .input(stockAdjustSchema)
-    .mutation(({ input }) => {
+    .mutation(async ({ input }) => {
       const repo = new InventoryRepo(getDb());
-      return repo.adjust({
+      const item = repo.adjust({
         inventory_item_id: input.inventory_item_id,
         delta: input.delta,
         reason: input.reason,
         note: input.note ?? null,
       });
+      await publishInventory(repo);
+      return item;
     }),
 
   categories: publicProcedure.query(() => new InventoryRepo(getDb()).categories()),
