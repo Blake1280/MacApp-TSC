@@ -13,7 +13,10 @@ export default defineConfig({
     },
     build: {
       rollupOptions: {
-        input: { index: resolve('src/main/index.ts') },
+        input: {
+          index: resolve('src/main/index.ts'),
+          catalogueSync: resolve('scripts/sync-catalogue.ts'),
+        },
       },
     },
   },

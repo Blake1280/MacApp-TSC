@@ -69,6 +69,20 @@ function shouldFirePaletteRecipe(finishId: string | null): boolean {
   return finishId === 'foil';
 }
 
+/** Current website bundles send display-oriented lockedContents instead of
+ * legacy locked addon ids. In that format the imported bundle recipe is the
+ * authoritative fixed-content recipe. Legacy orders keep using their addon
+ * ids so historical deductions remain unchanged. */
+function shouldUseBundleRecipe(order: {
+  flow_type: string;
+  bundle_id: string | null;
+  locked_addons_csv: string | null;
+}): boolean {
+  return order.flow_type === 'bundle'
+    && Boolean(order.bundle_id)
+    && parseLockedAddons(order.locked_addons_csv).length === 0;
+}
+
 /**
  * Resolve all catalogue entries that an order depends on:
  * design + finish + palette + each add-on (locked + trim for bundles).
@@ -96,6 +110,13 @@ function catalogueEntriesForOrder(orderId: number): CatalogueEntry[] {
   if (order.design_slug) {
     const e = catalogue.byKindAndExternalId('design', order.design_slug);
     if (e) out.push(e);
+  }
+  if (shouldUseBundleRecipe(order)) {
+    const externalId = `bundle:${order.bundle_id}`;
+    if (order.design_slug !== externalId) {
+      const e = catalogue.byKindAndExternalId('design', externalId);
+      if (e) out.push(e);
+    }
   }
   if (order.finish_id) {
     const e = catalogue.byKindAndExternalId('finish', order.finish_id);
@@ -135,6 +156,10 @@ export function previewOrderRecipes(orderId: number): {
   const unresolved: Array<{ kind: string; external_id: string; reason: string }> = [];
   const expected: Array<{ kind: 'design' | 'finish' | 'palette' | 'addon'; ext: string }> = [];
   if (order.design_slug) expected.push({ kind: 'design', ext: order.design_slug });
+  if (shouldUseBundleRecipe(order)) {
+    const ext = `bundle:${order.bundle_id}`;
+    if (order.design_slug !== ext) expected.push({ kind: 'design', ext });
+  }
   if (order.finish_id) expected.push({ kind: 'finish', ext: order.finish_id });
   // Palette is only "expected" for foil orders — see shouldFirePaletteRecipe.
   if (order.palette_id && shouldFirePaletteRecipe(order.finish_id)) {

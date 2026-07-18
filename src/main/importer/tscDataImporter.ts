@@ -1,5 +1,6 @@
 import { readFileSync, statSync, existsSync, readdirSync } from 'node:fs';
 import { join, basename } from 'node:path';
+import { createHash } from 'node:crypto';
 import vm from 'node:vm';
 import AdmZip from 'adm-zip';
 import { logger } from '@main/logging/logger';
@@ -31,8 +32,10 @@ type RawTSC = {
     id: string;
     name: string;
     category?: string;
+    contentsPrice?: number;
     defaultFinish?: string;
     defaultPalette?: string;
+    lockedContents?: string[];
     lockedAddonIds?: string[];
     trimAddonIds?: string[];
   }>;
@@ -134,8 +137,10 @@ export function buildPreview(path: string): ImportPreview {
       external_id: b.id,
       name: b.name,
       category: b.category ?? null,
+      price_cents: bundlePriceCents(data, b),
       default_finish_id: b.defaultFinish ?? null,
       default_palette_id: b.defaultPalette ?? null,
+      locked_content_names: Array.isArray(b.lockedContents) ? b.lockedContents : [],
       locked_addon_ids: Array.isArray(b.lockedAddonIds) ? b.lockedAddonIds : [],
     })),
   };
@@ -143,8 +148,68 @@ export function buildPreview(path: string): ImportPreview {
 
 const ADDON_INVENTORY_CATEGORY = 'addon';
 
+const REQUIRED_RECIPE_INVENTORY: Record<string, { name: string; cost_cents: number | null }> = {
+  'balloon-bubble-24in': { name: '24-inch clear bubble balloon', cost_cents: 299 },
+  'ribbon-curled-roll': { name: 'Curling ribbon roll', cost_cents: 80 },
+  'ribbon-satin-roll': { name: 'Satin ribbon spool', cost_cents: 699 },
+  'gift-box-medium': { name: 'Medium gift box', cost_cents: 700 },
+  'sc-pin': { name: 'Balloon care safety pin', cost_cents: null },
+  'care-guide-card': { name: 'Balloon care guide card', cost_cents: null },
+  'balloon-latex-5in-pack': { name: '5-inch latex balloon', cost_cents: null },
+};
+
 function inventorySkuForAddon(addonId: string): string {
   return `addon-${addonId}`;
+}
+
+type RawBundle = NonNullable<RawTSC['bundles']>[number];
+
+function bundlePriceCents(data: RawTSC, bundle: RawBundle): number | null {
+  if (typeof bundle.contentsPrice !== 'number') return null;
+  const finishPrice = data.finishes.find((finish) => finish.id === bundle.defaultFinish)?.price ?? 0;
+  return Math.round((bundle.contentsPrice + finishPrice) * 100);
+}
+
+type BundleContentLine = { sku: string; name: string; quantity: number; source: string };
+
+/** Convert website display strings into stable inventory rows and quantities. */
+function bundleContentLine(source: string): BundleContentLine {
+  let name = source.trim();
+  let quantity = 1;
+
+  const parenthetical = name.match(/\s*\((\d+)\)\s*$/);
+  const trailing = name.match(/\s+[x×]\s*(\d+)\s*$/i);
+  const leadingTimes = name.match(/^(\d+)\s*[x×]\s*(.+)$/i);
+  const leadingCount = name.match(/^(\d+)\s+(.+)$/);
+
+  if (parenthetical) {
+    quantity = Number(parenthetical[1]);
+    name = name.slice(0, parenthetical.index).trim();
+  } else if (trailing) {
+    quantity = Number(trailing[1]);
+    name = name.slice(0, trailing.index).trim();
+  } else if (leadingTimes) {
+    quantity = Number(leadingTimes[1]);
+    name = leadingTimes[2].trim();
+  } else if (leadingCount) {
+    quantity = Number(leadingCount[1]);
+    name = leadingCount[2].trim();
+  }
+
+  const slug = name
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '') || 'item';
+  const hash = createHash('sha1').update(name.toLowerCase()).digest('hex').slice(0, 8);
+
+  return {
+    sku: `bundle-${slug.slice(0, 38)}-${hash}`,
+    name,
+    quantity: Math.max(1, quantity),
+    source,
+  };
 }
 
 /* ----------------------------------------------------------------------
@@ -393,6 +458,23 @@ export function applyImport(
   const addonInventoryByExtId = new Map<string, number>();
 
   const tx = db.transaction(() => {
+    if (options.autoCreateAddonInventory) {
+      for (const [sku, definition] of Object.entries(REQUIRED_RECIPE_INVENTORY)) {
+        if (inventory.bySku(sku)) continue;
+        inventory.create({
+          sku,
+          name: definition.name,
+          category: 'Materials',
+          unit: 'each',
+          on_hand: 0,
+          reorder_at: 0,
+          cost_cents: definition.cost_cents,
+          notes: 'Required by the website finish/add-on recipes. Confirm the unit cost and opening stock count.',
+        });
+        result.inventoryAutoCreated++;
+      }
+    }
+
     for (const f of data.finishes) {
       const { entry, created } = catalogue.upsert({
         kind: 'finish',
@@ -407,7 +489,7 @@ export function applyImport(
       // Auto-seed the finish recipe — bubble + ribbon + gift box + pin +
       // care guide. Only on first creation; re-imports leave the existing
       // recipe alone so manual edits to component quantities stick.
-      if ((options.autoSeedFinishRecipes ?? true) && created) {
+      if ((options.autoSeedFinishRecipes ?? true) && catalogue.recipeComponents(entry.id).length === 0) {
         const template = FINISH_RECIPE_TEMPLATES[f.id];
         if (template) {
           const written = applyRecipeTemplate(entry.id, `Finish '${f.name}'`, template);
@@ -432,7 +514,7 @@ export function applyImport(
       // The stockApplier guards palette firing to foil-only orders so
       // curled/satin orders that pick a palette as ribbon-colour intent
       // don't ghost-deduct from a cluster that wasn't actually shipped.
-      if ((options.autoSeedPaletteRecipes ?? true) && created) {
+      if ((options.autoSeedPaletteRecipes ?? true) && catalogue.recipeComponents(entry.id).length === 0) {
         const template = paletteRecipeFor(p.id);
         const written = applyRecipeTemplate(entry.id, `Palette '${p.name}'`, template);
         result.paletteRecipesAutoSeeded += written;
@@ -543,7 +625,7 @@ export function applyImport(
           kind: 'design',
           external_id: externalId,
           name: b.name,
-          price_cents: null,
+          price_cents: bundlePriceCents(data, b),
           default_finish_id: b.defaultFinish ?? null,
           default_palette_id: b.defaultPalette ?? null,
           category: b.category ?? null,
@@ -554,9 +636,39 @@ export function applyImport(
         // clobber Jade's manual edits to the bundle's recipe. If she
         // wants to re-seed she can clear the recipe components first.
         const lockedIds = Array.isArray(b.lockedAddonIds) ? b.lockedAddonIds : [];
-        if ((options.autoSeedBundleRecipes ?? true) && created && lockedIds.length > 0) {
-          const existingComponents = catalogue.recipeComponents(entry.id);
-          if (existingComponents.length === 0) {
+        const lockedContents = Array.isArray(b.lockedContents) ? b.lockedContents : [];
+        if ((options.autoSeedBundleRecipes ?? true) && catalogue.recipeComponents(entry.id).length === 0) {
+          if (lockedContents.length > 0) {
+            for (const rawContent of lockedContents) {
+              const line = bundleContentLine(rawContent);
+              let item = inventory.bySku(line.sku);
+              if (!item && options.autoCreateAddonInventory) {
+                item = inventory.create({
+                  sku: line.sku,
+                  name: line.name,
+                  category: 'Bundle contents',
+                  unit: 'each',
+                  on_hand: 0,
+                  reorder_at: 0,
+                  cost_cents: null,
+                  notes: `Auto-created from website bundle content '${line.source}'. Add the real supplier cost and stock count.`,
+                });
+                result.inventoryAutoCreated++;
+              }
+              if (!item) {
+                result.bundleRecipeWarnings.push(
+                  `Bundle '${b.name}' content '${line.source}' has no inventory item - recipe component skipped.`,
+                );
+                continue;
+              }
+              catalogue.upsertRecipeComponent({
+                catalogue_id: entry.id,
+                inventory_item_id: item.id,
+                quantity: line.quantity,
+              });
+              result.bundleRecipesAutoSeeded++;
+            }
+          } else {
             for (const addonId of lockedIds) {
               const invItemId = addonInventoryByExtId.get(addonId);
               if (!invItemId) {

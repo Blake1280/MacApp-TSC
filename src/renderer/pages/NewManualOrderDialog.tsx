@@ -71,6 +71,19 @@ export default function NewManualOrderDialog({ onClose }: { onClose: () => void 
     );
   }
 
+  function selectDesign(value: string) {
+    const design = designs.find((entry) => entry.external_id === value);
+    setForm((current) => ({
+      ...current,
+      design_slug: value,
+      finish_id: design?.default_finish_id ?? current.finish_id,
+      palette_id: design?.default_palette_id ?? current.palette_id,
+      total: design?.price_cents != null
+        ? (design.price_cents / 100).toFixed(2)
+        : current.total,
+    }));
+  }
+
   function submit(e: React.FormEvent) {
     e.preventDefault();
     create.mutate({
@@ -167,8 +180,11 @@ export default function NewManualOrderDialog({ onClose }: { onClose: () => void 
               <Field label="Design">
                 <Select
                   value={form.design_slug}
-                  options={designs.map((d) => ({ value: d.external_id, label: d.name }))}
-                  onChange={(v) => update('design_slug', v)}
+                  options={designs.map((d) => ({
+                    value: d.external_id,
+                    label: `${d.external_id.startsWith('bundle:') ? 'Bundle - ' : ''}${d.name}${d.price_cents != null ? ` ($${(d.price_cents / 100).toFixed(0)})` : ''}`,
+                  }))}
+                  onChange={selectDesign}
                 />
               </Field>
               <Field label="Finish">

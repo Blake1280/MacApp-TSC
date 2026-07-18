@@ -34,8 +34,8 @@ export default function MarginsPage() {
           <TrendingDown className="h-7 w-7 text-rose-600" /> Margins
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          What's actually making money. Cost is the cheapest known supplier price × recipe quantity. Items
-          missing supplier prices are flagged so you know the COGS number's noisy.
+          What's actually making money. Cost uses the cheapest supplier price, then the item's recorded cost
+          when no supplier price exists. Missing costs are flagged so you know which margins still need work.
         </p>
       </header>
 

@@ -112,8 +112,8 @@ export const importApplySchema = z.object({
   autoCreateAddonInventory: z.boolean().default(true),
   autoSeedAddonRecipes: z.boolean().default(true),
   // Bundles import as 'design' catalogue entries. When enabled, also
-  // auto-seed each bundle's recipe by walking its lockedAddonIds and
-  // upserting one recipe component per locked addon's inventory item.
+  // auto-seed each bundle's recipe from current lockedContents (or legacy
+  // lockedAddonIds), including quantities encoded in the content label.
   // Off by default for stocktake-spreadsheet imports (which don't carry
   // bundles); on by default for product-data.js imports.
   importBundles: z.boolean().default(true),

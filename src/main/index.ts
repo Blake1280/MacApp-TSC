@@ -9,6 +9,7 @@ import { startSyncEngine, stopSyncEngine } from '@main/sync/engine';
 import { initAutoUpdater } from '@main/auth/updater';
 import { installAppMenu } from '@main/menu';
 import { isCaptureMode, runCaptureSequence } from '@main/capture';
+import { syncWebsiteCatalogue } from '@main/lib/catalogueSync';
 
 const isDev = !app.isPackaged;
 
@@ -64,7 +65,7 @@ function createWindow(): void {
   createIPCHandler({ router: appRouter, windows: [mainWindow] });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   logger.info('App ready', { version: app.getVersion(), platform: process.platform });
 
   try {
@@ -108,6 +109,23 @@ app.whenReady().then(() => {
       });
     }
   })();
+
+  if (!isCaptureMode()) {
+    try {
+      const result = await syncWebsiteCatalogue();
+      logger.info('Website catalogue sync complete', {
+        inserted: result.inserted,
+        updated: result.updated,
+        inventoryAutoCreated: result.inventoryAutoCreated,
+        bundleRecipeComponents: result.bundleRecipesAutoSeeded,
+        warnings: result.bundleRecipeWarnings.length + result.finishRecipeWarnings.length,
+      });
+    } catch (err) {
+      logger.warn('Website catalogue sync skipped', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 
   installAppMenu(() => mainWindow);
   createWindow();

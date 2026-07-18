@@ -59,7 +59,7 @@ const KIND_ICON: Record<CatalogueKind, typeof Sparkles> = {
 };
 
 const KIND_DESCRIPTION: Record<CatalogueKind, string> = {
-  design: 'Named designs from the website gallery. Recipes here represent any design-specific extras.',
+  design: 'Website bundles and gallery designs. Bundle prices and included gift recipes stay synced from the website.',
   finish: 'Curled, satin, foil. Each finish recipe deducts the relevant ribbon/topper.',
   palette: 'Colour palettes. Each palette recipe deducts the matching colour balloons (foil orders only).',
   addon: 'Stand-alone add-ons. Auto-seeded as 1:1 inventory items on import.',
@@ -81,10 +81,11 @@ function isBundle(entry: CatalogueEntry): boolean {
 const BUNDLE_CATEGORY_ORDER = [
   'For Her',
   'For Him',
-  'Birthday',
   'Baby',
-  'Gender Reveal',
-  'Spoil',
+  'Spa',
+  'Celebration',
+  'Birthday',
+  'Wake Up',
   'Treats',
 ];
 
@@ -773,10 +774,10 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
                 onChange={(e) => setAutoCreate(e.target.checked)}
               />
               <span>
-                Auto-create inventory items for the 9 add-ons
+                Auto-create inventory items for add-ons and bundle contents
                 <span className="block text-xs text-muted-foreground">
-                  Creates SKUs like <code>addon-plush</code>, <code>addon-wine</code>. Safe — won't
-                  overwrite existing items.
+                  Creates stable stock items for every website extra and included bundle gift. Safe — won't
+                  overwrite existing items or stock counts.
                 </span>
               </span>
             </label>
@@ -805,10 +806,8 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
               <span>
                 Import pre-set bundles
                 <span className="block text-xs text-muted-foreground">
-                  Each bundle imports as a Catalogue 'design' entry (external_id <code>bundle:&lt;id&gt;</code>)
-                  with default finish/palette so bundle orders show up correctly in Catalogue, Margins
-                  and projection. Stock deduction still flows through each locked addon — bundles
-                  don't double-deduct.
+                  Each bundle imports with its current default selling price, finish, palette and category
+                  so manual orders, Catalogue and Margins all match the live website.
                 </span>
               </span>
             </label>
@@ -823,8 +822,8 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
               <span>
                 Auto-seed bundle recipes
                 <span className="block text-xs text-muted-foreground">
-                  On first creation only. Each bundle's recipe gets one component per locked addon
-                  (qty 1). Re-imports leave existing recipes alone so your manual edits stick.
+                  Each included gift becomes a recipe component with its listed quantity. Existing
+                  non-empty recipes are preserved so your manual edits stick.
                 </span>
               </span>
             </label>

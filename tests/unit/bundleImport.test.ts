@@ -46,9 +46,10 @@ const TSC_DATA = {
       id: 'for-mum-classic',
       name: 'For Mum — soft & classic',
       category: 'For Her',
+      contentsPrice: 20,
       defaultFinish: 'satin',
       defaultPalette: 'blush',
-      lockedAddonIds: ['candle', 'giftcard'],
+      lockedContents: ['Chocolates (10)', 'Artificial roses x3'],
       trimAddonIds: ['wine'],
     },
     {
@@ -118,7 +119,9 @@ describe('tscDataImporter — bundles', () => {
     expect(mum!.name).toBe('For Mum — soft & classic');
     expect(mum!.default_finish_id).toBe('satin');
     expect(mum!.default_palette_id).toBe('blush');
-    expect(mum!.locked_addon_ids).toEqual(['candle', 'giftcard']);
+    expect(mum!.price_cents).toBe(8500);
+    expect(mum!.locked_content_names).toEqual(['Chocolates (10)', 'Artificial roses x3']);
+    expect(mum!.locked_addon_ids).toEqual([]);
   });
 
   it('apply imports bundles as design entries with bundle:<id> external_id', () => {
@@ -133,7 +136,7 @@ describe('tscDataImporter — bundles', () => {
     expect(result.updated.bundles).toBe(0);
   });
 
-  it('seeds bundle recipes from lockedAddonIds and warns on unknown', () => {
+  it('seeds current lockedContents quantities and warns on unknown legacy ids', () => {
     const result = applyImport(path, {
       autoCreateAddonInventory: true,
       autoSeedAddonRecipes: true,
@@ -146,6 +149,24 @@ describe('tscDataImporter — bundles', () => {
     expect(result.bundleRecipesAutoSeeded).toBe(2);
     expect(result.bundleRecipeWarnings).toHaveLength(1);
     expect(result.bundleRecipeWarnings[0]).toMatch(/Mystery box.*unknown-thing/);
+
+    const bundleId = (db.prepare(
+      `SELECT id FROM catalogue_entries WHERE kind='design' AND external_id='bundle:for-mum-classic'`,
+    ).get() as { id: number }).id;
+    const components = db.prepare(
+      `SELECT i.name, r.quantity FROM recipe_components r
+       JOIN inventory_items i ON i.id = r.inventory_item_id
+       WHERE r.catalogue_id = ? ORDER BY i.name`,
+    ).all(bundleId) as Array<{ name: string; quantity: number }>;
+    expect(components).toEqual([
+      { name: 'Artificial roses', quantity: 3 },
+      { name: 'Chocolates', quantity: 10 },
+    ]);
+
+    const stored = db.prepare(
+      `SELECT price_cents FROM catalogue_entries WHERE id = ?`,
+    ).get(bundleId) as { price_cents: number };
+    expect(stored.price_cents).toBe(8500);
   });
 
   it('respects the importBundles=false toggle', () => {
@@ -284,9 +305,9 @@ describe('tscDataImporter — bundles', () => {
     ]);
   });
 
-  it('warns on missing physical SKUs without seeding partial recipes', () => {
-    // Drop the bubble inventory row — finish seeder should warn for it
-    // but still seed the rest of the satin lines (ribbon, box, pin, guide).
+  it('repairs missing required material SKUs before seeding finish recipes', () => {
+    // Drop the bubble inventory row. A website sync must recreate the
+    // required material and keep every finish recipe complete.
     db.prepare(`DELETE FROM inventory_items WHERE sku = 'balloon-bubble-24in'`).run();
 
     const result = applyImport(path, {
@@ -298,12 +319,9 @@ describe('tscDataImporter — bundles', () => {
       autoSeedPaletteRecipes: true,
     });
 
-    // Satin and foil both reference the missing bubble → 2 warnings.
-    // Surviving lines: satin 4 (ribbon, box, pin, care) + foil 3 (box,
-    // pin, care — latex moved off finish onto palette) = 7 (down from 9).
-    expect(result.finishRecipesAutoSeeded).toBe(7);
-    expect(result.finishRecipeWarnings.length).toBeGreaterThanOrEqual(2);
-    expect(result.finishRecipeWarnings.some((w) => w.includes('balloon-bubble-24in'))).toBe(true);
+    expect(result.finishRecipesAutoSeeded).toBe(9);
+    expect(result.finishRecipeWarnings.some((w) => w.includes('balloon-bubble-24in'))).toBe(false);
+    expect(db.prepare(`SELECT 1 FROM inventory_items WHERE sku='balloon-bubble-24in'`).get()).toBeTruthy();
   });
 
   it('re-imports do not clobber edited bundle recipes', () => {

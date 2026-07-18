@@ -109,6 +109,50 @@ describe('cogs', () => {
     expect(result.unknown_items.find((u) => u.sku === 'test-mystery')).toBeTruthy();
   });
 
+  it('falls back to the inventory item cost when no supplier source is priced', () => {
+    const material = db.prepare(
+      `INSERT INTO inventory_items (sku, name, unit, on_hand, reorder_at, cost_cents)
+       VALUES ('test-material', 'Test material', 'each', 20, 2, 125)`,
+    ).run();
+    db.prepare(
+      `INSERT INTO recipe_components (catalogue_id, inventory_item_id, quantity)
+       VALUES (?, ?, 2)`,
+    ).run(s.designId, Number(material.lastInsertRowid));
+
+    const result = computeOrderCogs(s.byoOrderId);
+    expect(result.cogs_cents).toBe(560);
+    expect(result.unknown_items.some((item) => item.sku === 'test-material')).toBe(false);
+  });
+
+  it('uses the imported bundle recipe for current website orders without locked addon ids', () => {
+    const gift = db.prepare(
+      `INSERT INTO inventory_items (sku, name, unit, on_hand, reorder_at)
+       VALUES ('bundle-test-gift', 'Bundle test gift', 'each', 10, 1)`,
+    ).run();
+    const giftId = Number(gift.lastInsertRowid);
+    db.prepare(
+      `INSERT INTO inventory_supplier_sources
+         (inventory_item_id, supplier_name, unit_price_cents, is_preferred)
+       VALUES (?, 'Test supplier', 400, 1)`,
+    ).run(giftId);
+    const bundle = db.prepare(
+      `INSERT INTO catalogue_entries (kind, external_id, name, price_cents)
+       VALUES ('design', 'bundle:test-mums-day', 'Mums Day', 5000)`,
+    ).run();
+    db.prepare(
+      `INSERT INTO recipe_components (catalogue_id, inventory_item_id, quantity)
+       VALUES (?, ?, 2)`,
+    ).run(Number(bundle.lastInsertRowid), giftId);
+    db.prepare('UPDATE orders SET design_slug = NULL, locked_addons_csv = NULL WHERE id = ?')
+      .run(s.bundleOrderId);
+
+    const result = computeOrderCogs(s.bundleOrderId);
+    expect(result.cogs_cents).toBe(800);
+    expect(result.lines).toEqual(expect.arrayContaining([
+      expect.objectContaining({ sku: 'bundle-test-gift', quantity: 2 }),
+    ]));
+  });
+
   it('marginsByBundle aggregates by bundle_id and creates a BYO bucket', () => {
     const rows = marginsByBundle();
     const byo = rows.find((r) => r.flow_type === 'byo');

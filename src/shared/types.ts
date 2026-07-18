@@ -104,14 +104,16 @@ export type ImportPreview = {
   palettes: Array<{ external_id: string; name: string }>;
   addons: Array<{ external_id: string; name: string; price_cents: number | null; group: string | null }>;
   // Pre-set bundles — Jade-curated gift kits sold from /bundles.html. Each
-  // imports as a catalogue 'design' entry whose recipe is the union of its
-  // locked addons. trim/optional addons are tracked at the order level.
+  // imports as a catalogue 'design' entry whose recipe is built from its
+  // current lockedContents. trim/optional addons are tracked at order level.
   bundles: Array<{
     external_id: string;
     name: string;
     category: string | null;
+    price_cents: number | null;
     default_finish_id: string | null;
     default_palette_id: string | null;
+    locked_content_names: string[];
     locked_addon_ids: string[];
   }>;
 };

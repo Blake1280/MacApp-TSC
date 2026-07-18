@@ -59,7 +59,11 @@ function cheapestPriceFor(db: Database, itemId: number): number | null {
         WHERE inventory_item_id = ? AND unit_price_cents IS NOT NULL`,
     )
     .get(itemId) as { min_price: number | null } | undefined;
-  return row?.min_price ?? null;
+  if (row?.min_price != null) return row.min_price;
+  const fallback = db
+    .prepare('SELECT cost_cents FROM inventory_items WHERE id = ?')
+    .get(itemId) as { cost_cents: number | null } | undefined;
+  return fallback?.cost_cents ?? null;
 }
 
 export function computeOrderCogs(orderId: number, dbOverride?: Database): OrderCogs {
